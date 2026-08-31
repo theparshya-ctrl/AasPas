@@ -1,0 +1,3 @@
+# Beta APK API URL — set after Fly.io deploy (gitignored; copy from beta.properties.example)
+# Must be HTTPS with trailing slash.
+BETA_API_BASE_URL=https://aaspas-beta.fly.dev/

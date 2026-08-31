@@ -1,0 +1,1 @@
+"""Shop/merchant module."""

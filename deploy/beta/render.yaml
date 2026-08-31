@@ -1,0 +1,44 @@
+# Render Blueprint for AasPas External Beta (DO NOT auto-deploy from repo without billing approval).
+# Docs: docs/BETA_DEPLOYMENT_RENDER.md
+#
+# Create manually in Render Dashboard or via blueprint after setting secret env vars.
+
+services:
+  - type: web
+    name: aaspas-beta
+    runtime: docker
+    plan: free
+    region: singapore
+    healthCheckPath: /health
+    autoDeploy: false
+    dockerfilePath: ./Dockerfile
+    dockerCommand: sh /app/deploy/beta/render-start.sh
+    envVars:
+      - key: APP_ENV
+        value: staging
+      - key: APP_DEBUG
+        value: "false"
+      - key: PYTHONPATH
+        value: /app/src
+      - key: MEDIA_STORAGE_BACKEND
+        value: s3
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: MEDIA_PUBLIC_BASE_URL
+        sync: false
+      - key: AWS_ENDPOINT_URL_S3
+        sync: false
+      - key: AWS_REGION
+        value: us-east-2
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_S3_BUCKET
+        sync: false
+      - key: BETA_ADMIN_EMAIL
+        sync: false
+      - key: BETA_ADMIN_PASSWORD
+        sync: false

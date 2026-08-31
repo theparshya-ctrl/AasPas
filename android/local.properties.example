@@ -1,0 +1,10 @@
+# Copy to android/local.properties (never commit that file).
+sdk.dir=C\:\\Users\\Admin\\AppData\\Local\\Android\\Sdk
+
+# Physical device DEBUG API via Tailscale (gitignored local.properties).
+# Run `tailscale ip -4` on the laptop and paste the 100.x address below.
+# Do not commit a machine-specific IP. Emulator default (if unset): http://10.0.2.2:8000/
+API_BASE_URL=http://100.x.y.z:8000/
+
+# Google Maps SDK for Android — create in Google Cloud Console
+# MAPS_API_KEY=your_key_here

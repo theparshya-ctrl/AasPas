@@ -1,0 +1,82 @@
+# --- Secrets & credentials (never commit) ---
+.env
+.env.*
+!.env.example
+!.env.beta.example
+Neon Credential.txt
+Neon Credential*.txt
+*Credential*.txt
+ID & password/
+secrets/
+*.pem
+*.key
+
+# Android / local secrets
+android/local.properties
+android/beta.properties
+local.properties
+beta.properties
+
+# Beta runtime data (isolated from DEV)
+.env.beta
+beta_data/
+
+# Local SQLite DB for phone/emulator dev when PostgreSQL is unavailable
+dev.db
+*.db
+*.sqlite
+*.sqlite3
+
+# Windows launcher runtime (CURSOR-024A). Terminal output is the log.
+logs/
+
+# Local uploaded shop media (dev storage)
+uploads/
+
+# Versioned APK release binaries (scripts and README are tracked)
+releases/current/*.apk
+releases/archive/*.apk
+!releases/README.md
+
+# Root / build APK artifacts
+*.apk
+!releases/README.md
+
+# Python
+.venv/
+venv/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Android / Gradle
+android/.gradle/
+android/**/build/
+android/captures/
+*.iml
+.idea/
+.gradle/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+*.log
+
+# Cursor / agent (local only)
+.cursor/
+agent-tools/

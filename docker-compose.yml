@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: aaspas-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aaspas
+      POSTGRES_PASSWORD: aaspas
+      POSTGRES_DB: aaspas
+    ports:
+      - "5432:5432"
+    volumes:
+      - aaspas_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aaspas -d aaspas"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aaspas-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://aaspas:aaspas@postgres:5432/aaspas
+      APP_ENV: development
+      SECRET_KEY: dev-secret-change-in-production
+    ports:
+      - "8000:8000"
+    profiles:
+      - full
+
+volumes:
+  aaspas_pg_data:

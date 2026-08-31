@@ -1,0 +1,48 @@
+# Isolated AasPas Beta stack — NOT for local DEV.
+# Usage: docker compose -f docker-compose.beta.yml up --build
+# Beta API: https via Fly deploy, or http://127.0.0.1:8001 locally through this stack
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: aaspas-beta-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aaspas_beta
+      POSTGRES_PASSWORD: aaspas_beta
+      POSTGRES_DB: aaspas_beta
+    ports:
+      - "5433:5432"
+    volumes:
+      - aaspas_beta_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aaspas_beta -d aaspas_beta"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  aaspas-beta-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aaspas-beta-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8001:8000"
+    env_file:
+      - path: .env.beta
+        required: true
+    environment:
+      APP_ENV: staging
+      DATABASE_URL: postgresql://aaspas_beta:aaspas_beta@postgres:5432/aaspas_beta
+      MEDIA_ROOT: /data/uploads
+    volumes:
+      - aaspas_beta_uploads:/data/uploads
+    command: ["sh", "/app/deploy/beta/docker-entrypoint.sh"]
+
+volumes:
+  aaspas_beta_pg:
+  aaspas_beta_uploads:

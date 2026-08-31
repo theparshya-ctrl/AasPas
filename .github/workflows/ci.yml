@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: aaspas
+          POSTGRES_PASSWORD: aaspas
+          POSTGRES_DB: aaspas
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check src tests
+
+      - name: Run tests
+        env:
+          DATABASE_URL: sqlite:///:memory:
+          SECRET_KEY: ci-test-secret
+          APP_ENV: testing
+        run: pytest --cov=aaspas --cov-report=term-missing
+
+      - name: Validate migrations (PostgreSQL)
+        env:
+          DATABASE_URL: postgresql://aaspas:aaspas@localhost:5432/aaspas
+          SECRET_KEY: ci-test-secret
+        run: alembic upgrade head

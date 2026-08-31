@@ -1,0 +1,50 @@
+# Fly.io deployment for AasPas External Beta (CURSOR-041B).
+# Requires Fly.io account with credit card on file (verify current pricing on fly.io/docs).
+#
+# Deploy (after `fly auth login` and billing approval):
+#   fly secrets set SECRET_KEY=... DATABASE_URL=postgresql://... MEDIA_PUBLIC_BASE_URL=https://...
+#   fly deploy --config deploy/beta/fly.toml
+
+app = "aaspas-beta"
+primary_region = "bom"
+
+[build]
+  context = "../.."
+  dockerfile = "Dockerfile"
+
+[processes]
+  app = "sh /app/deploy/beta/docker-entrypoint.sh"
+
+[env]
+  APP_ENV = "staging"
+  APP_DEBUG = "false"
+  HOST = "0.0.0.0"
+  PORT = "8000"
+  MEDIA_ROOT = "/data/uploads"
+  MEDIA_URL_PREFIX = "/media"
+  RATE_LIMIT_PER_MINUTE = "120"
+
+# DATABASE_URL and SECRET_KEY must be set via `fly secrets set` (use Neon free PostgreSQL or Fly Postgres).
+# MEDIA_PUBLIC_BASE_URL=https://<app-name>.fly.dev — set after first deploy.
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 50
+    soft_limit = 40
+
+[[mounts]]
+  source = "aaspas_beta_data"
+  destination = "/data"
+  processes = ["app"]
+
+[vm]
+  size = "shared-cpu-1x"
+  memory = "512mb"
