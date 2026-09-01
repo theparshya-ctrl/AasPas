@@ -16,6 +16,8 @@ android/local.properties
 android/beta.properties
 local.properties
 beta.properties
+*.jks
+*.keystore
 
 # Beta runtime data (isolated from DEV)
 .env.beta

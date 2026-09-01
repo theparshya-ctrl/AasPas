@@ -54,5 +54,7 @@ object DiscoveryMapper {
         isComingSoon = status.equals("coming_soon", ignoreCase = true),
         isSaved = isSaved,
         isVerified = isVerified,
+        sourceType = sourceType,
+        sourceName = sourceName,
     )
 }

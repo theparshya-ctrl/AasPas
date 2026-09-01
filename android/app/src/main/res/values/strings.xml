@@ -241,6 +241,9 @@
     <string name="offer_photo_updated_success">Offer photo updated successfully.</string>
     <string name="offer_photo_compress_failed">Could not read the selected photo. Try another image or retake.</string>
     <string name="verified_by_aaspas">Verified by AasPas</string>
+    <string name="ongoing_offer">Ongoing offer</string>
+    <string name="not_confirmed_by_aaspas">Not confirmed by AasPas</string>
+    <string name="external_offer_source">Source: %1$s</string>
     <string name="admin_console_title">Admin Console</string>
     <string name="admin_console_subtitle">Platform administration</string>
     <string name="admin_open_console">Open Admin Console</string>

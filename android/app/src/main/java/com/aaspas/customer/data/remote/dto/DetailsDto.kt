@@ -23,10 +23,12 @@ data class OfferDetailsDto(
     @SerialName("photo_url") val photoUrl: String? = null,
     @SerialName("discount_type") val discountType: String,
     @SerialName("discount_value") val discountValue: String,
-    @SerialName("starts_at") val startsAt: String,
-    @SerialName("ends_at") val endsAt: String,
+    @SerialName("starts_at") val startsAt: String? = null,
+    @SerialName("ends_at") val endsAt: String? = null,
     val status: String,
     @SerialName("is_verified") val isVerified: Boolean = false,
+    @SerialName("source_type") val sourceType: String = "AASPAS",
+    @SerialName("source_name") val sourceName: String? = null,
     val shop: OfferDetailsShopDto,
 )
 
@@ -38,8 +40,8 @@ data class ShopOfferItemDto(
     @SerialName("photo_url") val photoUrl: String? = null,
     @SerialName("discount_type") val discountType: String,
     @SerialName("discount_value") val discountValue: String,
-    @SerialName("starts_at") val startsAt: String,
-    @SerialName("ends_at") val endsAt: String,
+    @SerialName("starts_at") val startsAt: String? = null,
+    @SerialName("ends_at") val endsAt: String? = null,
     val status: String,
 )
 

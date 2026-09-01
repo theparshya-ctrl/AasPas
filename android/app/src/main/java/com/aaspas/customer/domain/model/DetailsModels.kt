@@ -23,12 +23,17 @@ data class OfferDetails(
     val photoUrl: String?,
     val discountType: String,
     val discountValue: String,
-    val startsAt: String,
-    val endsAt: String,
+    val startsAt: String? = null,
+    val endsAt: String? = null,
     val status: OfferVisibilityStatus,
     val isVerified: Boolean = false,
+    val sourceType: String = "AASPAS",
+    val sourceName: String? = null,
     val shop: OfferDetailsShop,
-)
+) {
+    val isExternal: Boolean
+        get() = sourceType.equals("EXTERNAL", ignoreCase = true)
+}
 
 data class ShopOfferSummary(
     val id: String,
@@ -37,8 +42,8 @@ data class ShopOfferSummary(
     val photoUrl: String?,
     val discountType: String,
     val discountValue: String,
-    val startsAt: String,
-    val endsAt: String,
+    val startsAt: String? = null,
+    val endsAt: String? = null,
     val status: OfferVisibilityStatus,
 )
 

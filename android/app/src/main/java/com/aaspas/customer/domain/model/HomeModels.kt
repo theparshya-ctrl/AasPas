@@ -20,8 +20,8 @@ data class Offer(
     val photoUrl: String?,
     val discountType: String,
     val discountValue: String,
-    val startsAt: String,
-    val endsAt: String,
+    val startsAt: String? = null,
+    val endsAt: String? = null,
     val shopId: String,
     val shopName: String,
     val distanceKm: Double?,
@@ -29,7 +29,12 @@ data class Offer(
     val isComingSoon: Boolean,
     val isSaved: Boolean = false,
     val isVerified: Boolean = false,
-)
+    val sourceType: String = "AASPAS",
+    val sourceName: String? = null,
+) {
+    val isExternal: Boolean
+        get() = sourceType.equals("EXTERNAL", ignoreCase = true)
+}
 
 data class Shop(
     val id: String,

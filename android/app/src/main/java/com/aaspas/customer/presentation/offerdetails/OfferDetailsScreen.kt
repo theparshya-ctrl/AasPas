@@ -41,6 +41,7 @@ import com.aaspas.customer.domain.model.OfferVisibilityStatus
 import com.aaspas.customer.presentation.components.DetailsRemoteImage
 import com.aaspas.customer.presentation.components.EmptyState
 import com.aaspas.customer.presentation.components.ErrorState
+import com.aaspas.customer.presentation.components.ExternalOfferDisclaimerBadge
 import com.aaspas.customer.presentation.components.StatusBadge
 import com.aaspas.customer.presentation.theme.AasPasColors
 import com.aaspas.customer.presentation.theme.AasPasRadius
@@ -203,15 +204,19 @@ private fun OfferDetailsContent(
                     text = stringResource(R.string.verified_by_aaspas),
                     isComingSoon = false,
                 )
+            } else if (offer.isExternal) {
+                ExternalOfferDisclaimerBadge(sourceName = offer.sourceName)
             }
             Text(
-                text = if (isComingSoon) {
-                    stringResource(R.string.starts_on, DateFormatters.formatShortDate(offer.startsAt))
-                } else {
-                    stringResource(
-                        R.string.valid_until,
-                        DateFormatters.formatShortDate(offer.endsAt),
-                    )
+                text = when {
+                    isComingSoon && !offer.startsAt.isNullOrBlank() ->
+                        stringResource(R.string.starts_on, DateFormatters.formatShortDate(offer.startsAt))
+                    isComingSoon ->
+                        stringResource(R.string.coming_soon_badge)
+                    !offer.endsAt.isNullOrBlank() ->
+                        stringResource(R.string.valid_until, DateFormatters.formatShortDate(offer.endsAt))
+                    else ->
+                        stringResource(R.string.ongoing_offer)
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = AasPasColors.TextSecondary,

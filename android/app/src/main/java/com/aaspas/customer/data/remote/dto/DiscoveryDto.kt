@@ -11,8 +11,8 @@ data class SearchOfferDto(
     @SerialName("photo_url") val photoUrl: String? = null,
     @SerialName("discount_type") val discountType: String,
     @SerialName("discount_value") val discountValue: String,
-    @SerialName("starts_at") val startsAt: String,
-    @SerialName("ends_at") val endsAt: String,
+    @SerialName("starts_at") val startsAt: String? = null,
+    @SerialName("ends_at") val endsAt: String? = null,
     val status: String,
     @SerialName("shop_id") val shopId: String,
     @SerialName("shop_name") val shopName: String,
@@ -20,6 +20,8 @@ data class SearchOfferDto(
     @SerialName("distance_km") val distanceKm: Double? = null,
     @SerialName("is_saved") val isSaved: Boolean = false,
     @SerialName("is_verified") val isVerified: Boolean = false,
+    @SerialName("source_type") val sourceType: String = "AASPAS",
+    @SerialName("source_name") val sourceName: String? = null,
 )
 
 @Serializable

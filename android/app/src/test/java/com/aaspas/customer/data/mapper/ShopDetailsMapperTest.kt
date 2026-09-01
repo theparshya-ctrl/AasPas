@@ -59,4 +59,30 @@ class ShopDetailsMapperTest {
         assertEquals(OfferVisibilityStatus.COMING_SOON, details.comingSoon.first().status)
         assertEquals("09:00", details.businessHours?.opensAt)
     }
+
+    @Test
+    fun `maps external shop offer with null ends_at`() {
+        val dto = ShopDetailsDto(
+            shopId = "shop-ext-1",
+            shopName = "Kirandeep Mobile Stores",
+            isVerified = false,
+            todayOffers = listOf(
+                ShopOfferItemDto(
+                    offerId = "offer-ext-1",
+                    title = "Save 5% on store vouchers",
+                    discountType = "percentage",
+                    discountValue = "5",
+                    startsAt = "2026-09-01T00:00:00Z",
+                    endsAt = null,
+                    status = "active",
+                ),
+            ),
+        )
+
+        val details = ShopDetailsMapper.toDomain(dto)
+
+        assertEquals(1, details.todayOffers.size)
+        assertEquals(null, details.todayOffers.first().endsAt)
+        assertEquals(OfferVisibilityStatus.ACTIVE, details.todayOffers.first().status)
+    }
 }

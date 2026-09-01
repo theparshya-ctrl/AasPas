@@ -241,6 +241,9 @@
     <string name="manage_offer_rejection">नकार कारण: %1$s</string>
     <string name="manage_offer_edit">संपादित / पुन्हा सादर</string>
     <string name="verified_by_aaspas">AasPas द्वारे पडताळले</string>
+    <string name="ongoing_offer">सुरू असलेली ऑफर</string>
+    <string name="not_confirmed_by_aaspas">AasPas द्वारे पुष्टी केलेले नाही</string>
+    <string name="external_offer_source">स्रोत: %1$s</string>
     <string name="admin_console_title">प्रशासन कन्सोल</string>
     <string name="admin_console_subtitle">प्लॅटफॉर्म प्रशासन</string>
     <string name="admin_open_console">प्रशासन कन्सोल उघडा</string>

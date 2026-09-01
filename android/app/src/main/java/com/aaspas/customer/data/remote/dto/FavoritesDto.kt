@@ -28,6 +28,9 @@ data class FavoriteOfferDto(
     val category: String? = null,
     @SerialName("distance_km") val distanceKm: Double? = null,
     @SerialName("is_active") val isActive: Boolean = true,
+    @SerialName("is_verified") val isVerified: Boolean = false,
+    @SerialName("source_type") val sourceType: String = "AASPAS",
+    @SerialName("source_name") val sourceName: String? = null,
     @SerialName("saved_at") val savedAt: String,
 )
 

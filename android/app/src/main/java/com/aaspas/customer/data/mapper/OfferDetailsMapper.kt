@@ -17,6 +17,8 @@ object OfferDetailsMapper {
         endsAt = dto.endsAt,
         status = parseStatus(dto.status),
         isVerified = dto.isVerified,
+        sourceType = dto.sourceType,
+        sourceName = dto.sourceName,
         shop = OfferDetailsShop(
             id = dto.shop.shopId,
             name = dto.shop.shopName,

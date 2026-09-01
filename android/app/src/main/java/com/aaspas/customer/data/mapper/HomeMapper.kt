@@ -49,6 +49,8 @@ object HomeMapper {
         isComingSoon = isComingSoon,
         isSaved = isSaved,
         isVerified = isVerified,
+        sourceType = sourceType,
+        sourceName = sourceName,
     )
 
     private fun HomeShopDto.toDomain() = Shop(

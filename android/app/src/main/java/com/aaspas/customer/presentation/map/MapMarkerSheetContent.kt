@@ -100,10 +100,15 @@ private fun MapOfferSummary(offer: Offer) {
     } else {
         stringResource(R.string.active_badge)
     }
-    val validityText = if (offer.isComingSoon) {
-        stringResource(R.string.starts_on, DateFormatters.formatShortDate(offer.startsAt))
-    } else {
-        stringResource(R.string.valid_until, DateFormatters.formatShortDate(offer.endsAt))
+    val validityText = when {
+        offer.isComingSoon && !offer.startsAt.isNullOrBlank() ->
+            stringResource(R.string.starts_on, DateFormatters.formatShortDate(offer.startsAt))
+        offer.isComingSoon ->
+            stringResource(R.string.coming_soon_badge)
+        !offer.endsAt.isNullOrBlank() ->
+            stringResource(R.string.valid_until, DateFormatters.formatShortDate(offer.endsAt))
+        else ->
+            stringResource(R.string.ongoing_offer)
     }
     Surface(
         color = if (offer.isComingSoon) AasPasColors.AmberSurface else AasPasColors.GreenSurface,

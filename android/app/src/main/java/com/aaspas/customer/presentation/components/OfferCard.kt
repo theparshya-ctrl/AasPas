@@ -41,10 +41,15 @@ fun OfferCard(
     } else {
         stringResource(R.string.active_badge)
     }
-    val validityText = if (offer.isComingSoon) {
-        stringResource(R.string.starts_on, DateFormatters.formatShortDate(offer.startsAt))
-    } else {
-        stringResource(R.string.valid_until, DateFormatters.formatShortDate(offer.endsAt))
+    val validityText = when {
+        offer.isComingSoon && !offer.startsAt.isNullOrBlank() ->
+            stringResource(R.string.starts_on, DateFormatters.formatShortDate(offer.startsAt))
+        offer.isComingSoon ->
+            stringResource(R.string.coming_soon_badge)
+        !offer.endsAt.isNullOrBlank() ->
+            stringResource(R.string.valid_until, DateFormatters.formatShortDate(offer.endsAt))
+        else ->
+            stringResource(R.string.ongoing_offer)
     }
     val imageDesc = stringResource(R.string.offer_image_desc, offer.title)
 
@@ -71,6 +76,8 @@ fun OfferCard(
                     OfferBadge(isComingSoon = offer.isComingSoon, text = badgeText)
                     if (offer.isVerified) {
                         VerifiedOfferBadge()
+                    } else if (offer.isExternal) {
+                        ExternalOfferDisclaimerBadge(sourceName = offer.sourceName)
                     }
                     Text(
                         text = DateFormatters.formatOfferValue(offer.discountType, offer.discountValue),
@@ -114,6 +121,30 @@ fun OfferCard(
                     modifier = Modifier.align(Alignment.TopEnd),
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun ExternalOfferDisclaimerBadge(sourceName: String? = null) {
+    Column(verticalArrangement = Arrangement.spacedBy(AasPasSpacing.xs)) {
+        Surface(
+            color = AasPasColors.AmberSurface,
+            shape = RoundedCornerShape(AasPasRadius.sm),
+        ) {
+            Text(
+                text = stringResource(R.string.not_confirmed_by_aaspas),
+                modifier = Modifier.padding(horizontal = AasPasSpacing.sm, vertical = AasPasSpacing.xs),
+                style = MaterialTheme.typography.labelMedium,
+                color = AasPasColors.AmberAttention,
+            )
+        }
+        sourceName?.takeIf { it.isNotBlank() }?.let { name ->
+            Text(
+                text = stringResource(R.string.external_offer_source, name),
+                style = MaterialTheme.typography.labelSmall,
+                color = AasPasColors.TextSecondary,
+            )
         }
     }
 }
