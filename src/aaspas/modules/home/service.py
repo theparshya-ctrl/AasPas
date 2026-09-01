@@ -18,6 +18,11 @@ from aaspas.modules.home.schemas import (
     HomeShopItem,
 )
 from aaspas.modules.location.models import Location
+from aaspas.modules.offer.customer_fields import (
+    customer_offer_is_verified,
+    customer_offer_source_name,
+    customer_offer_source_type,
+)
 from aaspas.modules.offer.models import Offer
 from aaspas.modules.offer.repository import OfferRepository
 from aaspas.modules.offer.visibility import resolve_customer_visibility
@@ -109,7 +114,9 @@ class HomeService:
                     distance_km=distance_map.get(shop.id),
                     category=self._resolve_category_name(shop, category),
                     is_saved=offer.id in saved_offer_ids,
-                    is_verified=offer.is_verified,
+                    is_verified=customer_offer_is_verified(offer),
+                    source_type=customer_offer_source_type(offer),
+                    source_name=customer_offer_source_name(offer),
                 )
             )
         return items

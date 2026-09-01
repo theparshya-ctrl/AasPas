@@ -21,6 +21,9 @@ class FavoriteOfferItem(BaseModel):
     category: str | None = None
     distance_km: float | None = None
     is_active: bool
+    is_verified: bool = False
+    source_type: str = "AASPAS"
+    source_name: str | None = None
     saved_at: datetime
 
 

@@ -22,8 +22,8 @@ class CustomerSearchOfferItem(BaseModel):
     photo_url: str | None = None
     discount_type: str
     discount_value: Decimal
-    starts_at: datetime
-    ends_at: datetime
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
     status: str
     shop_id: uuid.UUID
     shop_name: str
@@ -31,6 +31,8 @@ class CustomerSearchOfferItem(BaseModel):
     distance_km: float | None = None
     is_saved: bool = False
     is_verified: bool = False
+    source_type: str = "AASPAS"
+    source_name: str | None = None
 
 
 class CustomerSearchResults(BaseModel):

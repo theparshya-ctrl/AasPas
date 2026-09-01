@@ -3,6 +3,7 @@
 from datetime import datetime
 from enum import StrEnum
 
+from aaspas.common.source_type import SourceType
 from aaspas.modules.offer.models import Offer
 from aaspas.modules.offer.status import OfferStatus
 from aaspas.modules.shop.models import Shop
@@ -32,6 +33,9 @@ def resolve_customer_visibility(
     if shop.status != ShopStatus.ACTIVE.value:
         return None
 
+    if offer.source_type == SourceType.EXTERNAL.value:
+        return _external_visibility(offer, now)
+
     if offer.starts_at is None or offer.ends_at is None:
         return None
 
@@ -49,6 +53,18 @@ def resolve_customer_visibility(
         return CustomerOfferVisibility.ACTIVE
 
     return None
+
+
+def _external_visibility(offer: Offer, now: datetime) -> CustomerOfferVisibility | None:
+    now = _ensure_aware(now)
+    if offer.ends_at is not None:
+        ends_at = _ensure_aware(offer.ends_at)
+        if ends_at <= now:
+            return None
+    effective_start = offer.starts_at or offer.collected_at
+    if effective_start is not None and _ensure_aware(effective_start) > now:
+        return CustomerOfferVisibility.COMING_SOON
+    return CustomerOfferVisibility.ACTIVE
 
 
 def _ensure_aware(dt: datetime) -> datetime:

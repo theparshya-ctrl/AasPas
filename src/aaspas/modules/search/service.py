@@ -1,6 +1,6 @@
 import math
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -13,6 +13,11 @@ from aaspas.modules.category.models import Category
 from aaspas.modules.category.repository import CategoryRepository
 from aaspas.modules.category.schemas import CategoryOffersResponse
 from aaspas.modules.location.models import Location
+from aaspas.modules.offer.customer_fields import (
+    customer_offer_is_verified,
+    customer_offer_source_name,
+    customer_offer_source_type,
+)
 from aaspas.modules.offer.models import Offer
 from aaspas.modules.offer.repository import OfferRepository
 from aaspas.modules.offer.visibility import CustomerOfferVisibility, resolve_customer_visibility
@@ -140,7 +145,6 @@ class SearchService:
             if radius_km is not None and distance_km is not None and distance_km > radius_km:
                 continue
 
-            assert offer.starts_at is not None and offer.ends_at is not None
             items.append(
                 CustomerSearchOfferItem(
                     offer_id=offer.id,
@@ -163,7 +167,9 @@ class SearchService:
                     category=self._category_name(shop, category),
                     distance_km=distance_km,
                     is_saved=offer.id in saved,
-                    is_verified=offer.is_verified,
+                    is_verified=customer_offer_is_verified(offer),
+                    source_type=customer_offer_source_type(offer),
+                    source_name=customer_offer_source_name(offer),
                 )
             )
         return items
@@ -176,7 +182,11 @@ class SearchService:
     ) -> list[CustomerSearchOfferItem]:
         if latitude is not None and longitude is not None:
             return sorted(items, key=lambda item: item.distance_km if item.distance_km is not None else 9999.0)
-        return sorted(items, key=lambda item: item.starts_at, reverse=True)
+        return sorted(
+            items,
+            key=lambda item: item.starts_at or datetime.min.replace(tzinfo=UTC),
+            reverse=True,
+        )
 
     @staticmethod
     def _paginate(

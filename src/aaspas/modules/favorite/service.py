@@ -20,8 +20,12 @@ from aaspas.modules.favorite.schemas import (
 )
 from aaspas.modules.location.models import Location
 from aaspas.modules.location.repository import LocationRepository
-from aaspas.modules.offer.models import Offer
 from aaspas.modules.offer.repository import OfferRepository
+from aaspas.modules.offer.customer_fields import (
+    customer_offer_is_verified,
+    customer_offer_source_name,
+    customer_offer_source_type,
+)
 from aaspas.modules.offer.visibility import resolve_customer_visibility
 from aaspas.modules.shop.models import Shop
 from aaspas.modules.shop.repository import ShopRepository
@@ -177,6 +181,9 @@ class FavoriteService:
             category=category.name if category else shop.category,
             distance_km=distance_km,
             is_active=visibility is not None,
+            is_verified=customer_offer_is_verified(offer),
+            source_type=customer_offer_source_type(offer),
+            source_name=customer_offer_source_name(offer),
             saved_at=favorite.created_at,
         )
 

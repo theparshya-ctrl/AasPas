@@ -4,6 +4,7 @@ from datetime import datetime
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
+from aaspas.common.source_type import SourceType
 from aaspas.modules.category.models import Category
 from aaspas.modules.location.models import Location
 from aaspas.modules.offer.models import Offer
@@ -97,6 +98,17 @@ class OfferRepository:
         )
 
     def _customer_base_query(self, now: datetime):
+        standard_dated = and_(
+            Offer.source_type == SourceType.AASPAS.value,
+            Offer.ends_at.isnot(None),
+            Offer.ends_at > now,
+            Offer.starts_at.isnot(None),
+        )
+        external_visible = and_(
+            Offer.source_type == SourceType.EXTERNAL.value,
+            Offer.status.in_([s.value for s in OfferStatus.customer_approved()]),
+            or_(Offer.ends_at.is_(None), Offer.ends_at > now),
+        )
         return (
             self.db.query(Offer, Shop, Location, Category)
             .join(Shop, Offer.shop_id == Shop.id)
@@ -106,10 +118,7 @@ class OfferRepository:
             )
             .outerjoin(Category, Shop.category_id == Category.id)
             .filter(Shop.status == ShopStatus.ACTIVE.value)
-            .filter(Offer.status.in_([s.value for s in OfferStatus.customer_approved()]))
-            .filter(Offer.ends_at.isnot(None))
-            .filter(Offer.ends_at > now)
-            .filter(Offer.starts_at.isnot(None))
+            .filter(or_(standard_dated, external_visible))
         )
 
     def get_customer_offer_context(
@@ -188,9 +197,17 @@ class OfferRepository:
     ) -> list[tuple[Offer, Shop, Location, Category | None]]:
         query = self._customer_base_query(now)
         if coming_soon:
-            query = query.filter(Offer.starts_at > now)
+            query = query.filter(Offer.starts_at.isnot(None), Offer.starts_at > now)
         else:
-            query = query.filter(Offer.starts_at <= now)
+            query = query.filter(
+                or_(
+                    and_(Offer.starts_at.isnot(None), Offer.starts_at <= now),
+                    and_(
+                        Offer.source_type == SourceType.EXTERNAL.value,
+                        Offer.starts_at.is_(None),
+                    ),
+                )
+            )
 
         if category_slug:
             query = query.filter(Category.slug == category_slug)

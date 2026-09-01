@@ -29,7 +29,7 @@ class AuthRepository:
         limit: int = 50,
         offset: int = 0,
     ) -> list[User]:
-        query = self.db.query(User)
+        query = self.db.query(User).filter(User.is_system_account.is_(False))
         if role:
             query = query.filter(User.role == role)
         if search:

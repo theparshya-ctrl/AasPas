@@ -5,6 +5,7 @@ from aaspas.common.exceptions import ConflictError, UnauthorizedError, Validatio
 from aaspas.common.security.auth import create_access_token, hash_password, verify_password
 from aaspas.common.security.rbac import UserRole
 from aaspas.config import get_settings
+from aaspas.modules.external.constants import EXTERNAL_DATA_OWNER_EMAIL
 from aaspas.modules.auth.models import User
 from aaspas.modules.auth.repository import AuthRepository
 from aaspas.modules.auth.schemas import LoginRequest, RegisterRequest, TokenResponse, UserResponse
@@ -22,6 +23,9 @@ class AuthService:
     def register(self, data: RegisterRequest) -> UserResponse:
         if data.role not in {UserRole.CUSTOMER, UserRole.SHOP_OWNER}:
             raise ValidationAppError("Registration limited to customer and shop_owner roles")
+
+        if data.email.lower() == EXTERNAL_DATA_OWNER_EMAIL:
+            raise ValidationAppError("Email is reserved for system use")
 
         if self.repo.get_by_email(data.email):
             raise ConflictError("Email already registered")

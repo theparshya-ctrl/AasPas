@@ -25,6 +25,8 @@ from aaspas.modules.offer.models import Offer
 from aaspas.modules.offer.repository import OfferRepository
 from aaspas.modules.offer.status import OfferStatus
 from aaspas.modules.auth.models import User
+from aaspas.modules.external.constants import EXTERNAL_DATA_OWNER_FULL_NAME
+from aaspas.modules.external.system_owner import is_external_data_owner
 from aaspas.modules.shop.models import Shop
 from aaspas.modules.location.repository import LocationRepository
 from aaspas.modules.shop.events import (
@@ -110,12 +112,14 @@ class AdminService:
             merchant_confirmed_at=offer.merchant_confirmed_at,
             submitted_at=offer.submitted_at,
             is_verified=offer.is_verified,
+            source_type=offer.source_type,
             shop=AdminOfferShopSummary(
                 shop_id=shop.id,
                 shop_name=shop.name,
                 category=category_name,
                 status=shop.status,
                 is_verified=shop.approved_at is not None,
+                source_type=shop.source_type,
                 photo_url=resolve_customer_shop_photo_url(
                     self.settings,
                     photo_url=shop.photo_url,
@@ -124,8 +128,8 @@ class AdminService:
             ),
             merchant=AdminOfferMerchantSummary(
                 user_id=merchant.id,
-                full_name=merchant.full_name,
-                email=merchant.email,
+                full_name=self._owner_display_name(merchant),
+                email=self._owner_display_email(merchant),
             ),
         )
 
@@ -153,12 +157,13 @@ class AdminService:
                 AdminShopListItem(
                     shop_id=shop.id,
                     shop_name=shop.name,
-                    owner_name=owner.full_name,
-                    owner_email=owner.email,
+                    owner_name=self._owner_display_name(owner),
+                    owner_email=self._owner_display_email(owner),
                     category=shop.category,
                     city=location.city if location else None,
                     status=shop.status,
                     is_verified=shop.approved_at is not None,
+                    source_type=shop.source_type,
                     created_at=shop.created_at,
                     offer_count=self.offer_repo.count_for_shop(shop.id),
                     rejection_reason=shop.rejection_reason,
@@ -351,11 +356,23 @@ class AdminService:
             longitude=float(location.longitude) if location and location.longitude is not None else None,
             owner=AdminShopOwnerSummary(
                 user_id=owner.id,
-                full_name=owner.full_name,
-                email=owner.email,
+                full_name=AdminService._owner_display_name(owner),
+                email=AdminService._owner_display_email(owner),
                 phone=shop.contact_number,
             ),
         )
+
+    @staticmethod
+    def _owner_display_name(owner: User) -> str | None:
+        if is_external_data_owner(owner):
+            return EXTERNAL_DATA_OWNER_FULL_NAME
+        return owner.full_name
+
+    @staticmethod
+    def _owner_display_email(owner: User) -> str:
+        if is_external_data_owner(owner):
+            return EXTERNAL_DATA_OWNER_FULL_NAME
+        return owner.email
 
     def _audit_entries_for_shop(self, shop_id: uuid.UUID, *, limit: int = 10) -> list[AdminAuditEntry]:
         rows = (

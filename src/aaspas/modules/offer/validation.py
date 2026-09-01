@@ -22,14 +22,14 @@ CRITICAL_OFFER_FIELDS = frozenset(
 
 
 def validate_discount(discount_type: str, discount_value: Decimal) -> None:
-    if discount_type == "percentage":
+    if discount_type in {"percentage", "up_to_percentage"}:
         if discount_value <= 0 or discount_value > 100:
             raise ValidationAppError(
                 "Percentage discount must be between 0 and 100",
                 details={"field": "discount_value"},
             )
         return
-    if discount_type == "fixed":
+    if discount_type in {"fixed", "up_to_fixed"}:
         if discount_value <= 0:
             raise ValidationAppError(
                 "Fixed discount must be greater than 0",

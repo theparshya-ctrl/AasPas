@@ -11,6 +11,12 @@ from aaspas.common.security.auth import CurrentUser
 from aaspas.common.security.rbac import UserRole
 from aaspas.modules.category.models import Category
 from aaspas.modules.location.models import Location
+from aaspas.common.source_type import SourceType
+from aaspas.modules.offer.customer_fields import (
+    customer_offer_is_verified,
+    customer_offer_source_name,
+    customer_offer_source_type,
+)
 from aaspas.modules.offer.events import (
     OFFER_APPROVED,
     OFFER_REJECTED,
@@ -58,6 +64,9 @@ class OfferService:
 
     def create_offer(self, user: CurrentUser, data: OfferCreate) -> OfferResponse:
         self._assert_shop_access(data.shop_id, user, write=True)
+        shop = self.shop_repo.get_by_id(data.shop_id)
+        if shop is not None and shop.source_type == SourceType.EXTERNAL.value:
+            raise ForbiddenError("Cannot create offers on external listing shops")
         draft_discount_valid(data.discount_type, data.discount_value)
         offer = Offer(**data.model_dump(), status=OfferStatus.DRAFT.value)
         self.repo.create(offer)
@@ -89,6 +98,8 @@ class OfferService:
         content_type: str | None,
     ) -> OfferResponse:
         offer = self._get_offer_or_404(offer_id)
+        if offer.source_type == SourceType.EXTERNAL.value:
+            raise ForbiddenError("External offers cannot be edited through merchant flows")
         self._assert_shop_access(offer.shop_id, user, write=True)
         current = OfferStatus(offer.status)
         if current not in OfferStatus.merchant_editable():
@@ -160,7 +171,6 @@ class OfferService:
             raise NotFoundError("Offer not found")
 
         distance_km = self._distance_km(latitude, longitude, location)
-        assert offer.starts_at is not None and offer.ends_at is not None
         shop_photo = resolve_customer_shop_photo_url(
             self.settings,
             photo_url=shop.photo_url,
@@ -184,7 +194,11 @@ class OfferService:
             starts_at=offer.starts_at,
             ends_at=offer.ends_at,
             status=visibility.value,
-            is_verified=offer.is_verified,
+            is_verified=customer_offer_is_verified(offer),
+            source_type=customer_offer_source_type(offer),
+            source_name=customer_offer_source_name(offer),
+            source_url=offer.source_url if offer.source_type == SourceType.EXTERNAL.value else None,
+            collected_at=offer.collected_at if offer.source_type == SourceType.EXTERNAL.value else None,
             applicable_products=offer.applicable_products,
             min_purchase_amount=offer.min_purchase_amount,
             terms=offer.terms,
@@ -209,6 +223,8 @@ class OfferService:
         self, offer_id: uuid.UUID, user: CurrentUser, data: OfferUpdate
     ) -> OfferResponse:
         offer = self._get_offer_or_404(offer_id)
+        if offer.source_type == SourceType.EXTERNAL.value:
+            raise ForbiddenError("External offers cannot be edited through merchant flows")
         self._assert_shop_access(offer.shop_id, user, write=True)
         current = OfferStatus(offer.status)
         if current not in OfferStatus.merchant_editable():
@@ -263,6 +279,8 @@ class OfferService:
             )
 
         offer = self._get_offer_or_404(offer_id)
+        if offer.source_type == SourceType.EXTERNAL.value:
+            raise ValidationAppError("External offers cannot be submitted for AasPas verification")
         self._assert_shop_access(offer.shop_id, user, write=True)
         current = OfferStatus(offer.status)
         if current not in OfferStatus.submittable():
@@ -317,6 +335,8 @@ class OfferService:
 
     def approve_offer(self, offer_id: uuid.UUID, admin: CurrentUser, now: datetime) -> OfferResponse:
         offer = self._get_offer_or_404(offer_id)
+        if offer.source_type == SourceType.EXTERNAL.value:
+            raise ValidationAppError("External offers cannot be approved as AasPas Verified")
         if OfferStatus(offer.status) != OfferStatus.PENDING_APPROVAL:
             raise ValidationAppError(
                 "Only pending offers can be approved",

@@ -73,6 +73,11 @@ class OfferResponse(BaseModel):
     rejected_at: datetime | None = None
     rejection_reason: str | None = None
     is_verified: bool = False
+    source_type: str = "AASPAS"
+    source_name: str | None = None
+    source_url: str | None = None
+    collected_at: datetime | None = None
+    external_source_key: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -97,10 +102,14 @@ class CustomerOfferDetailResponse(BaseModel):
     photo_url: str | None = None
     discount_type: str
     discount_value: Decimal
-    starts_at: datetime
-    ends_at: datetime
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
     status: str
     is_verified: bool = False
+    source_type: str = "AASPAS"
+    source_name: str | None = None
+    source_url: str | None = None
+    collected_at: datetime | None = None
     applicable_products: str | None = None
     min_purchase_amount: Decimal | None = None
     terms: str | None = None

@@ -7,6 +7,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
+from aaspas.common.source_type import SourceType
 from aaspas.database import Base
 from aaspas.modules.shop.status import ShopStatus
 
@@ -34,6 +35,10 @@ class Shop(Base):
     status: Mapped[str] = mapped_column(
         String(50), default=ShopStatus.DRAFT.value, nullable=False, index=True
     )
+    source_type: Mapped[str] = mapped_column(
+        String(20), default=SourceType.AASPAS.value, nullable=False, index=True
+    )
+    external_source_key: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -29,6 +29,7 @@ class AdminOfferShopSummary(BaseModel):
     category: str | None = None
     status: str
     is_verified: bool = False
+    source_type: str = "AASPAS"
     photo_url: str | None = None
 
 
@@ -49,6 +50,7 @@ class AdminOfferReviewItem(BaseModel):
     merchant_confirmed_at: datetime | None = None
     submitted_at: datetime | None = None
     is_verified: bool = False
+    source_type: str = "AASPAS"
     shop: AdminOfferShopSummary
     merchant: AdminOfferMerchantSummary
 
@@ -92,6 +94,7 @@ class AdminShopListItem(BaseModel):
     city: str | None = None
     status: str
     is_verified: bool = False
+    source_type: str = "AASPAS"
     created_at: datetime
     offer_count: int = 0
     rejection_reason: str | None = None
