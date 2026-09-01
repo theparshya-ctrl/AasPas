@@ -112,8 +112,8 @@ class CustomerShopOfferItem(BaseModel):
     photo_url: str | None = None
     discount_type: str
     discount_value: Decimal
-    starts_at: datetime
-    ends_at: datetime
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
     status: str
 
 

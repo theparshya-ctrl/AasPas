@@ -205,6 +205,40 @@ class TestExternalOfferCustomerVisibility:
         assert item["source_type"] == SourceType.EXTERNAL.value
         assert item["source_name"] == "Public website"
 
+    def test_shop_details_external_offer_null_ends_at(self, fixed_now_client, db_session, pilot_data):
+        offer = import_external(
+            db_session,
+            pilot_data,
+            external_source_key="ext-shop-details-null-ends-001",
+            ends_at=None,
+        )
+        shop_id = str(offer.shop_id)
+        response = fixed_now_client.get(f"/api/v1/shops/{shop_id}")
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert data["is_verified"] is False
+        assert data["active_offer_count"] == 1
+        assert len(data["today_offers"]) == 1
+        item = data["today_offers"][0]
+        assert item["title"] == offer.title
+        assert item["ends_at"] is None
+        assert item["status"] == "active"
+
+    def test_shop_details_verified_aaspas_offer_fixed_ends_at(
+        self, fixed_now_client, pilot_data
+    ):
+        shop_id = str(pilot_data["active_shop"].id)
+        response = fixed_now_client.get(f"/api/v1/shops/{shop_id}")
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert data["is_verified"] is True
+        today = data["today_offers"]
+        assert len(today) >= 1
+        offer = next(o for o in today if o["title"] == "Today Offer")
+        assert offer["starts_at"] is not None
+        assert offer["ends_at"] is not None
+        assert offer["status"] == "active"
+
 
 class TestExternalOfferGuards:
     def test_approve_offer_rejects_external(self, db_session, external_offer):

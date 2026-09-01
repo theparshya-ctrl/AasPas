@@ -438,7 +438,6 @@ class ShopService:
         shop: Shop,
         visibility: CustomerOfferVisibility,
     ) -> CustomerShopOfferItem:
-        assert offer.starts_at is not None and offer.ends_at is not None
         return CustomerShopOfferItem(
             offer_id=offer.id,
             title=offer.title,
