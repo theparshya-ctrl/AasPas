@@ -334,7 +334,7 @@ fun HomeRoute(
             source = LocationSource.CURRENT_GPS,
             locationDenied = false,
             isRefresh = isRefresh,
-            forceReload = forceReload,
+            forceReload = true,
         )
     }
 

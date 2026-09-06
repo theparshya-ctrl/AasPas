@@ -39,8 +39,8 @@ android {
         applicationId = "com.aaspas.customer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.1.1"
+        versionCode = 6
+        versionName = "0.1.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")

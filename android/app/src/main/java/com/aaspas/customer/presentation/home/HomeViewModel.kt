@@ -269,7 +269,9 @@ class HomeViewModel(
 
     fun onSessionChanged(isLoggedIn: Boolean) {
         if (isLoggedIn) {
-            retry()
+            if (lastLatitude != null && lastLongitude != null) {
+                retry()
+            }
         } else {
             _uiState.update { state ->
                 state.copy(
