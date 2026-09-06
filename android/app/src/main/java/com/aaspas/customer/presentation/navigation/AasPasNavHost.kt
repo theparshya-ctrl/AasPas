@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.aaspas.customer.BuildConfig
+import com.aaspas.customer.core.update.AppUpdateDiagnostics
 import com.aaspas.customer.core.update.AppUpdateOffer
 import com.aaspas.customer.presentation.components.AppUpdateDialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -76,12 +77,24 @@ fun AasPasNavHost(
     var appUpdateDismissed by remember { mutableStateOf(false) }
     var appUpdateChecked by remember { mutableStateOf(false) }
 
-    LaunchedEffect(app) {
+    LaunchedEffect(Unit) {
         if (appUpdateChecked) return@LaunchedEffect
         appUpdateChecked = true
-        if (BuildConfig.APP_ENVIRONMENT != "BETA") return@LaunchedEffect
+        if (BuildConfig.APP_ENVIRONMENT != "BETA") {
+            AppUpdateDiagnostics.logSkip("environment=${BuildConfig.APP_ENVIRONMENT}")
+            return@LaunchedEffect
+        }
         val offer = app.appUpdateChecker.checkForUpdate(BuildConfig.VERSION_CODE)
-        if (offer != null && !appUpdateDismissed) {
+        val showDialog = offer != null && !appUpdateDismissed
+        AppUpdateDiagnostics.logDialogTrigger(
+            show = showDialog,
+            reason = when {
+                offer == null -> "no_update"
+                appUpdateDismissed -> "dismissed_this_session"
+                else -> "update_available"
+            },
+        )
+        if (showDialog) {
             appUpdateOffer = offer
         }
     }
