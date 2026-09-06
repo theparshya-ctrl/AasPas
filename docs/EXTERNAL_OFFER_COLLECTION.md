@@ -93,6 +93,15 @@ Never invent expiry dates. Never auto-delete because an offer was absent from on
 - Ongoing offers: `ends_at = null` — remain active until explicit evidence of end.
 - Fixed-end offers: set `ends_at` from the public source.
 - To deactivate: re-import with past `ends_at` **only when the source explicitly ended**, or follow manual review for stale candidates across multiple refresh runs.
+- **Stale deactivation (no invented `ends_at`)**: after verifying the public source no longer supports the offer (e.g. all vouchers sold out), run:
+
+```powershell
+PYTHONPATH=src python scripts/deactivate_external_offer.py <external_source_key> `
+  --reason "Public Magicpin vouchers sold out on store page" `
+  --source-url "https://..."
+```
+
+This sets `status=expired`, leaves `ends_at` null, preserves the offer record, and writes an `external_offer_deactivation` audit log entry.
 
 ## Validation policy
 

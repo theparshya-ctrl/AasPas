@@ -47,6 +47,22 @@ def _resolve_env_file() -> Path | None:
     return beta_env if beta_env.is_file() else None
 
 
+def _configure_console_encoding() -> None:
+    """Best-effort UTF-8 console output on Windows (avoids cp1252 failures on ₹ etc.)."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
+
+def _console_safe(text: str, *, encoding: str | None = None) -> str:
+    target = encoding or getattr(sys.stdout, "encoding", None) or "utf-8"
+    return text.encode(target, errors="replace").decode(target)
+
+
 def _print_report_summary(report) -> None:
     summary = report.to_summary_dict()
     print(
@@ -95,6 +111,8 @@ def main() -> int:
         help="Import records flagged NEEDS_REVIEW (e.g. area-only address)",
     )
     args = parser.parse_args()
+
+    _configure_console_encoding()
 
     env_file = _resolve_env_file()
     if env_file is not None:
@@ -153,8 +171,9 @@ def main() -> int:
         if report.stale_candidates:
             print("Stale candidates (missing from this collection file; not auto-deactivated):")
             for candidate in report.stale_candidates:
+                title = _console_safe(candidate.title)
                 print(
-                    f"  - {candidate.external_source_key}: {candidate.title} "
+                    f"  - {candidate.external_source_key}: {title} "
                     f"(status={candidate.status})"
                 )
 

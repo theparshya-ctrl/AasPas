@@ -197,6 +197,63 @@ class ExternalOfferImportService:
             )
         return stale
 
+    def deactivate_external_offer(
+        self,
+        external_source_key: str,
+        *,
+        reason: str,
+        now: datetime | None = None,
+        source_verification_url: str | None = None,
+    ) -> tuple[Offer, str]:
+        """Mark an EXTERNAL offer expired without setting ends_at (record preserved).
+
+        Used after manual stale review when the public source no longer supports the offer
+        but does not publish an explicit end date (e.g. vouchers sold out).
+        """
+        if not reason.strip():
+            raise ValidationAppError("Deactivation reason is required")
+
+        offer = (
+            self.db.query(Offer)
+            .filter(Offer.external_source_key == external_source_key)
+            .one_or_none()
+        )
+        if offer is None:
+            raise ValidationAppError(
+                f"External offer not found: {external_source_key}",
+                details={"external_source_key": external_source_key},
+            )
+        if offer.source_type != SourceType.EXTERNAL.value:
+            raise ValidationAppError("Only EXTERNAL offers can be deactivated via this workflow")
+        if offer.is_verified:
+            raise ValidationAppError("Cannot deactivate verified offers via external workflow")
+
+        previous_status = offer.status
+        if previous_status == OfferStatus.EXPIRED.value:
+            return offer, "unchanged"
+
+        offer.status = OfferStatus.EXPIRED.value
+        self.offer_repo.save(offer)
+        aware_now = self._ensure_aware(now or datetime.now(UTC))
+        record_audit(
+            self.db,
+            module=self.MODULE,
+            action=AuditAction.ADMIN,
+            resource_type="external_offer_deactivation",
+            resource_id=str(offer.id),
+            message=reason.strip(),
+            metadata={
+                "external_source_key": external_source_key,
+                "previous_status": previous_status,
+                "new_status": OfferStatus.EXPIRED.value,
+                "ends_at": offer.ends_at.isoformat() if offer.ends_at else None,
+                "source_verification_url": source_verification_url,
+                "deactivated_at": aware_now.isoformat(),
+            },
+        )
+        self.db.commit()
+        return offer, "deactivated"
+
     def _record_run_audit(self, report: ExternalOfferImportReport) -> None:
         record_audit(
             self.db,

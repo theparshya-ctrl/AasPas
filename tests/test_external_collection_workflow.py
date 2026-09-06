@@ -189,6 +189,56 @@ class TestExternalCollectionWorkflow:
         report = ExternalOfferImportService(db_session).import_many([record], now=FIXED_NOW)
         assert report.rejected == 1
 
+    def test_deactivate_external_offer_without_ends_at(self, db_session, pilot_data):
+        from aaspas.modules.offer.models import Offer
+        from aaspas.modules.offer.status import OfferStatus
+
+        offer = import_external(
+            db_session,
+            pilot_data,
+            external_source_key="ext-deactivate-workflow-001",
+            ends_at=None,
+        )
+        assert offer.ends_at is None
+        assert offer.status == OfferStatus.ACTIVE.value
+
+        service = ExternalOfferImportService(db_session)
+        deactivated, outcome = service.deactivate_external_offer(
+            "ext-deactivate-workflow-001",
+            reason="Public source vouchers sold out",
+            now=FIXED_NOW,
+            source_verification_url="https://example.com/store",
+        )
+        assert outcome == "deactivated"
+        assert deactivated.status == OfferStatus.EXPIRED.value
+        assert deactivated.ends_at is None
+        assert deactivated.is_verified is False
+        assert deactivated.source_type == "EXTERNAL"
+
+        again, second_outcome = service.deactivate_external_offer(
+            "ext-deactivate-workflow-001",
+            reason="Repeat call",
+            now=FIXED_NOW,
+        )
+        assert second_outcome == "unchanged"
+        assert again.status == OfferStatus.EXPIRED.value
+
+    def test_deactivate_rejects_non_external(self, db_session, pilot_data):
+        from aaspas.common.exceptions import ValidationAppError
+        from aaspas.modules.offer.models import Offer
+
+        offer = pilot_data["offers"][0]
+        offer.external_source_key = "ext-not-external-001"
+        db_session.commit()
+
+        service = ExternalOfferImportService(db_session)
+        with pytest.raises(ValidationAppError, match="EXTERNAL"):
+            service.deactivate_external_offer(
+                "ext-not-external-001",
+                reason="Should fail",
+                now=FIXED_NOW,
+            )
+
 
 @pytest.fixture
 def external_categories(db_session):
