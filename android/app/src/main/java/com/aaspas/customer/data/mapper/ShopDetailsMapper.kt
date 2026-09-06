@@ -45,5 +45,8 @@ object ShopDetailsMapper {
         startsAt = startsAt,
         endsAt = endsAt,
         status = OfferDetailsMapper.parseStatus(status),
+        isVerified = isVerified,
+        sourceType = sourceType,
+        sourceName = sourceName,
     )
 }

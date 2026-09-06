@@ -43,6 +43,9 @@ data class ShopOfferItemDto(
     @SerialName("starts_at") val startsAt: String? = null,
     @SerialName("ends_at") val endsAt: String? = null,
     val status: String,
+    @SerialName("is_verified") val isVerified: Boolean = false,
+    @SerialName("source_type") val sourceType: String = "AASPAS",
+    @SerialName("source_name") val sourceName: String? = null,
 )
 
 @Serializable

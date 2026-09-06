@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.aaspas.customer.R
 import com.aaspas.customer.presentation.components.RemoteMediaImage
+import com.aaspas.customer.presentation.components.ExternalOfferDisclaimerBadge
 import com.aaspas.customer.core.common.DateFormatters
 import com.aaspas.customer.domain.model.MapShopPin
 import com.aaspas.customer.domain.model.Offer
@@ -121,6 +122,9 @@ private fun MapOfferSummary(offer: Offer) {
             color = if (offer.isComingSoon) AasPasColors.AmberAttention else AasPasColors.GreenPositive,
         )
     }
+    if (!offer.isVerified && offer.isExternal) {
+        ExternalOfferDisclaimerBadge(sourceName = offer.sourceName)
+    }
     Text(
         text = offer.title,
         style = MaterialTheme.typography.bodyLarge,
@@ -138,25 +142,33 @@ private fun MapOfferListItem(
     offer: Offer,
     onClick: () -> Unit,
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(vertical = AasPasSpacing.xs),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(AasPasSpacing.xs),
     ) {
-        Text(
-            text = offer.title,
-            style = MaterialTheme.typography.bodyMedium,
-            color = AasPasColors.TextPrimary,
-            modifier = Modifier.weight(1f),
-        )
-        if (offer.isComingSoon) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
             Text(
-                text = stringResource(R.string.coming_soon_badge),
-                style = MaterialTheme.typography.labelSmall,
-                color = AasPasColors.AmberAttention,
+                text = offer.title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = AasPasColors.TextPrimary,
+                modifier = Modifier.weight(1f),
             )
+            if (offer.isComingSoon) {
+                Text(
+                    text = stringResource(R.string.coming_soon_badge),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AasPasColors.AmberAttention,
+                )
+            }
+        }
+        if (!offer.isVerified && offer.isExternal) {
+            ExternalOfferDisclaimerBadge(sourceName = offer.sourceName)
         }
     }
 }

@@ -13,6 +13,11 @@ from aaspas.modules.category.models import Category
 from aaspas.modules.location.models import Location
 from aaspas.modules.location.repository import LocationRepository
 from aaspas.modules.location.schemas import LocationResponse
+from aaspas.modules.offer.customer_fields import (
+    customer_offer_is_verified,
+    customer_offer_source_name,
+    customer_offer_source_type,
+)
 from aaspas.modules.offer.models import Offer
 from aaspas.modules.offer.repository import OfferRepository
 from aaspas.modules.offer.visibility import CustomerOfferVisibility, resolve_customer_visibility
@@ -454,5 +459,8 @@ class ShopService:
             starts_at=offer.starts_at,
             ends_at=offer.ends_at,
             status=visibility.value,
+            is_verified=customer_offer_is_verified(offer),
+            source_type=customer_offer_source_type(offer),
+            source_name=customer_offer_source_name(offer),
         )
 

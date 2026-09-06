@@ -115,6 +115,9 @@ class CustomerShopOfferItem(BaseModel):
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     status: str
+    is_verified: bool = False
+    source_type: str = "AASPAS"
+    source_name: str | None = None
 
 
 class CustomerShopDetailResponse(BaseModel):

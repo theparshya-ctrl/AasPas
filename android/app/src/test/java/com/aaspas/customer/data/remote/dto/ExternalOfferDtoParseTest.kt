@@ -80,6 +80,29 @@ class ExternalOfferDtoParseTest {
     }
 
     @Test
+    fun `shop offer item parses external source fields`() {
+        val item = json.decodeFromString<ShopOfferItemDto>(
+            """
+            {
+              "offer_id": "fe7d6abd-1d78-45c9-8312-2efc67e0584b",
+              "title": "Save 5% on store vouchers",
+              "discount_type": "percentage",
+              "discount_value": "5.00",
+              "starts_at": "2026-09-01T00:00:00Z",
+              "ends_at": null,
+              "status": "active",
+              "is_verified": false,
+              "source_type": "EXTERNAL",
+              "source_name": "Magicpin"
+            }
+            """.trimIndent(),
+        )
+        assertEquals("EXTERNAL", item.sourceType)
+        assertEquals("Magicpin", item.sourceName)
+        assertEquals(false, item.isVerified)
+    }
+
+    @Test
     fun `shop offer item parses null ends_at`() {
         val item = json.decodeFromString<ShopOfferItemDto>(
             """

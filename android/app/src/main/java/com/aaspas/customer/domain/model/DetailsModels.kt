@@ -45,7 +45,13 @@ data class ShopOfferSummary(
     val startsAt: String? = null,
     val endsAt: String? = null,
     val status: OfferVisibilityStatus,
-)
+    val isVerified: Boolean = false,
+    val sourceType: String = "AASPAS",
+    val sourceName: String? = null,
+) {
+    val isExternal: Boolean
+        get() = sourceType.equals("EXTERNAL", ignoreCase = true)
+}
 
 data class BusinessHours(
     val opensAt: String?,

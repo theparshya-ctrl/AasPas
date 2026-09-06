@@ -75,6 +75,9 @@ class ShopDetailsMapperTest {
                     startsAt = "2026-09-01T00:00:00Z",
                     endsAt = null,
                     status = "active",
+                    isVerified = false,
+                    sourceType = "EXTERNAL",
+                    sourceName = "Magicpin",
                 ),
             ),
         )
@@ -84,5 +87,34 @@ class ShopDetailsMapperTest {
         assertEquals(1, details.todayOffers.size)
         assertEquals(null, details.todayOffers.first().endsAt)
         assertEquals(OfferVisibilityStatus.ACTIVE, details.todayOffers.first().status)
+        assertEquals(false, details.todayOffers.first().isVerified)
+        assertEquals("EXTERNAL", details.todayOffers.first().sourceType)
+        assertEquals("Magicpin", details.todayOffers.first().sourceName)
+        assertTrue(details.todayOffers.first().isExternal)
+    }
+
+    @Test
+    fun `maps verified internal shop offer without external disclaimer fields`() {
+        val dto = ShopDetailsDto(
+            shopId = "shop-1",
+            shopName = "Verified Shop",
+            todayOffers = listOf(
+                ShopOfferItemDto(
+                    offerId = "offer-1",
+                    title = "Today Deal",
+                    discountType = "percentage",
+                    discountValue = "10",
+                    status = "active",
+                    isVerified = true,
+                    sourceType = "AASPAS",
+                ),
+            ),
+        )
+
+        val offer = ShopDetailsMapper.toDomain(dto).todayOffers.first()
+
+        assertTrue(offer.isVerified)
+        assertEquals("AASPAS", offer.sourceType)
+        assertEquals(false, offer.isExternal)
     }
 }

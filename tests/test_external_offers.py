@@ -223,6 +223,9 @@ class TestExternalOfferCustomerVisibility:
         assert item["title"] == offer.title
         assert item["ends_at"] is None
         assert item["status"] == "active"
+        assert item["is_verified"] is False
+        assert item["source_type"] == SourceType.EXTERNAL.value
+        assert item["source_name"] == "Public website"
 
     def test_shop_details_verified_aaspas_offer_fixed_ends_at(
         self, fixed_now_client, pilot_data
@@ -238,6 +241,9 @@ class TestExternalOfferCustomerVisibility:
         assert offer["starts_at"] is not None
         assert offer["ends_at"] is not None
         assert offer["status"] == "active"
+        assert offer["is_verified"] is False
+        assert offer["source_type"] == SourceType.AASPAS.value
+        assert offer["source_name"] is None
 
 
 class TestExternalOfferGuards:

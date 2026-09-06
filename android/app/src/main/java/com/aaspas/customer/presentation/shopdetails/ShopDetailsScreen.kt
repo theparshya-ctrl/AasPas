@@ -37,6 +37,7 @@ import com.aaspas.customer.domain.model.OfferVisibilityStatus
 import com.aaspas.customer.domain.model.ShopDetails
 import com.aaspas.customer.domain.model.ShopOfferSummary
 import com.aaspas.customer.presentation.components.DetailsRemoteImage
+import com.aaspas.customer.presentation.components.ExternalOfferDisclaimerBadge
 import com.aaspas.customer.presentation.components.ShopPhotoUrlField
 import com.aaspas.customer.presentation.components.EmptyState
 import com.aaspas.customer.presentation.components.ErrorState
@@ -269,6 +270,14 @@ private fun ShopOfferRow(
                 },
                 isComingSoon = isComingSoon,
             )
+            if (offer.isVerified) {
+                StatusBadge(
+                    text = stringResource(R.string.verified_by_aaspas),
+                    isComingSoon = false,
+                )
+            } else if (offer.isExternal) {
+                ExternalOfferDisclaimerBadge(sourceName = offer.sourceName)
+            }
         }
     }
 }
