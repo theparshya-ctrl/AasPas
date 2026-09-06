@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from aaspas.common.responses import ApiResponse
 from aaspas.common.security.auth import CurrentUser, get_current_user
 from aaspas.database import get_db
-from aaspas.modules.auth.schemas import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from aaspas.modules.auth.schemas import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse, UserResponse
 from aaspas.modules.auth.service import AuthService
 
 router = APIRouter(tags=["Auth"])
@@ -21,6 +21,12 @@ def register(data: RegisterRequest, db: Annotated[Session, Depends(get_db)]) -> 
 @router.post("/login", response_model=ApiResponse[TokenResponse])
 def login(data: LoginRequest, db: Annotated[Session, Depends(get_db)]) -> ApiResponse[TokenResponse]:
     token = AuthService(db).login(data)
+    return ApiResponse(data=token)
+
+
+@router.post("/refresh", response_model=ApiResponse[TokenResponse])
+def refresh(data: RefreshRequest, db: Annotated[Session, Depends(get_db)]) -> ApiResponse[TokenResponse]:
+    token = AuthService(db).refresh(data)
     return ApiResponse(data=token)
 
 

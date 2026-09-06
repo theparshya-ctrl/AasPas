@@ -23,6 +23,15 @@ class TokenPayload(BaseModel):
     role: UserRole
     shop_id: str | None = None
     exp: datetime
+    typ: str = "access"
+
+
+class RefreshTokenPayload(BaseModel):
+    sub: str
+    role: UserRole
+    shop_id: str | None = None
+    exp: datetime
+    typ: str = "refresh"
 
 
 class CurrentUser(BaseModel):
@@ -55,6 +64,27 @@ def create_access_token(
         "sub": str(user_id),
         "role": role.value,
         "shop_id": str(shop_id) if shop_id else None,
+        "typ": "access",
+        "exp": expire,
+    }
+    return jwt.encode(payload, settings.secret_key, algorithm="HS256")
+
+
+def create_refresh_token(
+    *,
+    user_id: uuid.UUID,
+    role: UserRole,
+    shop_id: uuid.UUID | None = None,
+    expires_delta: timedelta | None = None,
+) -> str:
+    expire = datetime.now(UTC) + (
+        expires_delta or timedelta(days=settings.refresh_token_expire_days)
+    )
+    payload = {
+        "sub": str(user_id),
+        "role": role.value,
+        "shop_id": str(shop_id) if shop_id else None,
+        "typ": "refresh",
         "exp": expire,
     }
     return jwt.encode(payload, settings.secret_key, algorithm="HS256")
@@ -63,6 +93,8 @@ def create_access_token(
 def decode_access_token(token: str) -> TokenPayload:
     try:
         data = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+        if data.get("typ", "access") != "access":
+            raise UnauthorizedError("Invalid or expired token")
         return TokenPayload(
             sub=data["sub"],
             role=UserRole(data["role"]),
@@ -71,6 +103,21 @@ def decode_access_token(token: str) -> TokenPayload:
         )
     except (JWTError, KeyError, ValueError) as exc:
         raise UnauthorizedError("Invalid or expired token") from exc
+
+
+def decode_refresh_token(token: str) -> RefreshTokenPayload:
+    try:
+        data = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+        if data.get("typ") != "refresh":
+            raise UnauthorizedError("Invalid or expired refresh token")
+        return RefreshTokenPayload(
+            sub=data["sub"],
+            role=UserRole(data["role"]),
+            shop_id=data.get("shop_id"),
+            exp=datetime.fromtimestamp(data["exp"], tz=UTC),
+        )
+    except (JWTError, KeyError, ValueError) as exc:
+        raise UnauthorizedError("Invalid or expired refresh token") from exc
 
 
 async def get_current_user_optional(

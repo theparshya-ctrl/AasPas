@@ -12,6 +12,10 @@ import com.aaspas.customer.core.network.NetworkModule
 import com.aaspas.customer.core.notifications.RealtimeNotificationCoordinator
 import com.aaspas.customer.core.notifications.RealtimeNotificationStore
 import com.aaspas.customer.core.startup.StartupTracer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import com.aaspas.customer.data.remote.AdminApi
 import com.aaspas.customer.data.remote.AuthApi
 import com.aaspas.customer.data.remote.DetailsApi
@@ -46,6 +50,7 @@ import java.util.concurrent.Executors
 class AasPasApplication : Application(), ImageLoaderFactory {
 
     private val backgroundInitExecutor = Executors.newSingleThreadExecutor()
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
@@ -62,6 +67,9 @@ class AasPasApplication : Application(), ImageLoaderFactory {
         super.onCreate()
         StartupTracer.mark("application_onCreate_start")
         NetworkModule.init(this)
+        appScope.launch {
+            authRepository.restoreSessionIfNeeded()
+        }
         Configuration.getInstance().userAgentValue = packageName
         backgroundInitExecutor.execute {
             Configuration.getInstance().load(this, getSharedPreferences("osmdroid", MODE_PRIVATE))
@@ -96,7 +104,7 @@ class AasPasApplication : Application(), ImageLoaderFactory {
     val adminApi: AdminApi by lazy { NetworkModule.api() }
 
     val authRepository: AuthRepository by lazy {
-        AuthRepositoryImpl(authApi, NetworkModule.session())
+        AuthRepositoryImpl(authApi, NetworkModule.refreshApi(), NetworkModule.session())
     }
 
     val favoritesRepository: FavoritesRepository by lazy {

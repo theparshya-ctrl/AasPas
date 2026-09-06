@@ -38,25 +38,37 @@ class SessionManagerTest {
 
     @Test
     fun `save and restore session`() {
-        sessionManager.saveSession("token-123", 3600)
+        sessionManager.saveSession("token-123", 3600, "refresh-123", 2_592_000)
         assertTrue(sessionManager.isLoggedIn())
         assertEquals("token-123", sessionManager.getToken())
+        assertEquals("refresh-123", sessionManager.getRefreshToken())
         assertEquals(SessionState.LoggedIn, sessionManager.sessionState.value)
     }
 
     @Test
-    fun `clear session removes token`() {
-        sessionManager.saveSession("token-123", 3600)
+    fun `clear session removes tokens`() {
+        sessionManager.saveSession("token-123", 3600, "refresh-123", 2_592_000)
         sessionManager.clearSession()
         assertFalse(sessionManager.isLoggedIn())
         assertNull(sessionManager.getToken())
+        assertNull(sessionManager.getRefreshToken())
         assertEquals(SessionState.LoggedOut, sessionManager.sessionState.value)
     }
 
     @Test
-    fun `expired session is cleared`() {
-        sessionManager.saveSession("token-123", -1)
+    fun `expired access with valid refresh remains logged in`() {
+        sessionManager.saveSession("token-123", -1, "refresh-123", 3600)
+        assertTrue(sessionManager.isLoggedIn())
+        assertNull(sessionManager.getToken())
+        assertEquals("refresh-123", sessionManager.getRefreshToken())
+        assertTrue(sessionManager.needsAccessTokenRefresh())
+    }
+
+    @Test
+    fun `expired refresh clears logged-in state`() {
+        sessionManager.saveSession("token-123", -1, "refresh-123", -1)
         assertFalse(sessionManager.isLoggedIn())
         assertNull(sessionManager.getToken())
+        assertNull(sessionManager.getRefreshToken())
     }
 }

@@ -3,6 +3,7 @@ package com.aaspas.customer.core.network
 import android.content.Context
 import com.aaspas.customer.BuildConfig
 import com.aaspas.customer.core.auth.SessionManager
+import com.aaspas.customer.data.remote.AuthApi
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -33,34 +34,52 @@ object NetworkModule {
         return sessionManager ?: error("NetworkModule.init(context) must be called first")
     }
 
-    private fun buildOkHttpClient(authenticated: Boolean): OkHttpClient {
-        val builder = OkHttpClient.Builder()
+    private fun baseClientBuilder(): OkHttpClient.Builder {
+        return OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
-
-        if (authenticated) {
-            sessionManager?.let {
-                builder.addInterceptor(AuthInterceptor(it))
-                builder.addInterceptor(UnauthorizedInterceptor(it))
+            .apply {
+                if (BuildConfig.DEBUG) {
+                    addInterceptor(
+                        HttpLoggingInterceptor().apply {
+                            level = HttpLoggingInterceptor.Level.BASIC
+                            redactHeader("Authorization")
+                        },
+                    )
+                }
             }
-        }
-
-        if (BuildConfig.DEBUG) {
-            builder.addInterceptor(
-                HttpLoggingInterceptor().apply {
-                    level = HttpLoggingInterceptor.Level.BASIC
-                    redactHeader("Authorization")
-                },
-            )
-        }
-        return builder.build()
     }
 
-    private val okHttpClient: OkHttpClient by lazy { buildOkHttpClient(authenticated = true) }
+    private val refreshOkHttpClient: OkHttpClient by lazy {
+        baseClientBuilder().build()
+    }
+
+    private val refreshRetrofit: Retrofit by lazy {
+        Retrofit.Builder()
+            .baseUrl(BuildConfig.API_BASE_URL)
+            .client(refreshOkHttpClient)
+            .addConverterFactory(json.asConverterFactory(contentType))
+            .build()
+    }
+
+    private val refreshAuthApi: AuthApi by lazy { refreshRetrofit.create() }
+
+    private val okHttpClient: OkHttpClient by lazy {
+        val manager = session()
+        baseClientBuilder()
+            .authenticator(
+                TokenRefreshAuthenticator(manager) {
+                    TokenRefresher.refresh(manager, refreshAuthApi)
+                },
+            )
+            .addInterceptor(AuthInterceptor(manager))
+            .addInterceptor(UnauthorizedInterceptor())
+            .build()
+    }
 
     /** Customer discovery/details endpoints must not send auth — role-based owner JSON breaks parsing. */
-    private val publicOkHttpClient: OkHttpClient by lazy { buildOkHttpClient(authenticated = false) }
+    private val publicOkHttpClient: OkHttpClient by lazy { baseClientBuilder().build() }
 
     val retrofit: Retrofit by lazy {
         Retrofit.Builder()
@@ -79,6 +98,8 @@ object NetworkModule {
     }
 
     inline fun <reified T> api(): T = retrofit.create()
+
+    fun refreshApi(): AuthApi = refreshAuthApi
 
     fun <T> publicApi(service: Class<T>): T = publicRetrofit.create(service)
 

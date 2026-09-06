@@ -18,6 +18,8 @@ class FakeAuthRepository(
 
     var loginResult: Result<Unit> = Result.Success(Unit)
     var registerResult: Result<Unit> = Result.Success(Unit)
+    var refreshResult: Result<Unit> = Result.Success(Unit)
+    var restoreResult: Result<Unit> = Result.Success(Unit)
     var lastRegisterRole: String? = null
     var currentUserResult: Result<UserAccount> = Result.Failure(AppError.Unauthorized)
     var logoutCalled = false
@@ -43,6 +45,10 @@ class FakeAuthRepository(
     }
 
     override suspend fun getCurrentUser(): Result<UserAccount> = currentUserResult
+
+    override suspend fun restoreSessionIfNeeded(): Result<Unit> = restoreResult
+
+    override suspend fun refreshSession(): Result<Unit> = refreshResult
 
     override fun isLoggedIn(): Boolean = _sessionState.value == SessionState.LoggedIn
 

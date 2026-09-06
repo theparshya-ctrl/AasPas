@@ -8,6 +8,7 @@ import com.aaspas.customer.core.common.toAppError
 import com.aaspas.customer.data.mapper.AuthMapper
 import com.aaspas.customer.data.remote.AuthApi
 import com.aaspas.customer.data.remote.dto.LoginRequestDto
+import com.aaspas.customer.data.remote.dto.RefreshRequestDto
 import com.aaspas.customer.data.remote.dto.RegisterRequestDto
 import com.aaspas.customer.domain.model.UserAccount
 import com.aaspas.customer.domain.repository.AuthRepository
@@ -16,6 +17,7 @@ import retrofit2.HttpException
 
 class AuthRepositoryImpl(
     private val api: AuthApi,
+    private val refreshApi: AuthApi,
     private val sessionManager: SessionManager,
 ) : AuthRepository {
     override val sessionState: StateFlow<SessionState> = sessionManager.sessionState
@@ -24,10 +26,19 @@ class AuthRepositoryImpl(
         return try {
             val response = api.login(LoginRequestDto(email.trim(), password))
             val tokenData = response.data
-            if (!response.success || tokenData?.accessToken.isNullOrBlank()) {
+            if (
+                !response.success ||
+                tokenData?.accessToken.isNullOrBlank() ||
+                tokenData.refreshToken.isNullOrBlank()
+            ) {
                 Result.Failure(AppError.Server)
             } else {
-                sessionManager.saveSession(tokenData.accessToken, tokenData.expiresIn)
+                sessionManager.saveSession(
+                    accessToken = tokenData.accessToken,
+                    expiresInSeconds = tokenData.expiresIn,
+                    refreshToken = tokenData.refreshToken,
+                    refreshExpiresInSeconds = tokenData.refreshExpiresIn,
+                )
                 Result.Success(Unit)
             }
         } catch (http: HttpException) {
@@ -75,6 +86,47 @@ class AuthRepositoryImpl(
             }
         } catch (http: HttpException) {
             Result.Failure(mapHttpError(http))
+        } catch (throwable: Throwable) {
+            Result.Failure(throwable.toAppError())
+        }
+    }
+
+    override suspend fun restoreSessionIfNeeded(): Result<Unit> {
+        if (!sessionManager.needsAccessTokenRefresh()) {
+            return if (sessionManager.isLoggedIn()) Result.Success(Unit) else Result.Failure(AppError.Unauthorized)
+        }
+        return refreshSession()
+    }
+
+    override suspend fun refreshSession(): Result<Unit> {
+        val refreshToken = sessionManager.getRefreshToken()
+            ?: return Result.Failure(AppError.Unauthorized).also { sessionManager.clearSession() }
+        return try {
+            val response = refreshApi.refresh(RefreshRequestDto(refreshToken))
+            val tokenData = response.data
+            if (!response.success || tokenData?.accessToken.isNullOrBlank()) {
+                sessionManager.clearSession()
+                Result.Failure(AppError.Unauthorized)
+            } else {
+                if (!tokenData.refreshToken.isNullOrBlank() && tokenData.refreshExpiresIn > 0) {
+                    sessionManager.saveSession(
+                        accessToken = tokenData.accessToken,
+                        expiresInSeconds = tokenData.expiresIn,
+                        refreshToken = tokenData.refreshToken,
+                        refreshExpiresInSeconds = tokenData.refreshExpiresIn,
+                    )
+                } else {
+                    sessionManager.updateAccessToken(tokenData.accessToken, tokenData.expiresIn)
+                }
+                Result.Success(Unit)
+            }
+        } catch (http: HttpException) {
+            if (http.code() == 401) {
+                sessionManager.clearSession()
+                Result.Failure(AppError.Unauthorized)
+            } else {
+                Result.Failure(mapHttpError(http))
+            }
         } catch (throwable: Throwable) {
             Result.Failure(throwable.toAppError())
         }

@@ -8,6 +8,13 @@ data class AuthTokenDto(
     @SerialName("access_token") val accessToken: String,
     @SerialName("token_type") val tokenType: String = "bearer",
     @SerialName("expires_in") val expiresIn: Long = 3600,
+    @SerialName("refresh_token") val refreshToken: String? = null,
+    @SerialName("refresh_expires_in") val refreshExpiresIn: Long = 0,
+)
+
+@Serializable
+data class RefreshRequestDto(
+    @SerialName("refresh_token") val refreshToken: String,
 )
 
 @Serializable

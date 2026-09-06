@@ -1,5 +1,6 @@
 package com.aaspas.customer.data.repository
 
+import android.content.Context
 import com.aaspas.customer.core.auth.SessionManager
 import com.aaspas.customer.core.auth.UserRoles
 import com.aaspas.customer.core.common.Result
@@ -7,6 +8,7 @@ import com.aaspas.customer.data.remote.AuthApi
 import com.aaspas.customer.data.remote.dto.ApiResponseDto
 import com.aaspas.customer.data.remote.dto.AuthTokenDto
 import com.aaspas.customer.data.remote.dto.LoginRequestDto
+import com.aaspas.customer.data.remote.dto.RefreshRequestDto
 import com.aaspas.customer.data.remote.dto.RegisterRequestDto
 import com.aaspas.customer.data.remote.dto.UserAccountDto
 import kotlinx.coroutines.test.runTest
@@ -23,15 +25,17 @@ class AuthRepositoryImplTest {
 
     private lateinit var sessionManager: SessionManager
     private lateinit var api: CapturingAuthApi
+    private lateinit var refreshApi: CapturingAuthApi
     private lateinit var repository: AuthRepositoryImpl
 
     @Before
     fun setup() {
         val context = RuntimeEnvironment.getApplication()
-        context.getSharedPreferences("aaspas_session", android.content.Context.MODE_PRIVATE).edit().clear().apply()
+        context.getSharedPreferences("aaspas_session", Context.MODE_PRIVATE).edit().clear().apply()
         sessionManager = SessionManager(context)
         api = CapturingAuthApi()
-        repository = AuthRepositoryImpl(api, sessionManager)
+        refreshApi = CapturingAuthApi()
+        repository = AuthRepositoryImpl(api, refreshApi, sessionManager)
     }
 
     @Test
@@ -51,6 +55,22 @@ class AuthRepositoryImplTest {
         )
         assertTrue(result is Result.Success)
         assertEquals(UserRoles.SHOP_OWNER, api.lastRegister?.role)
+    }
+
+    @Test
+    fun `login persists refresh token`() = runTest {
+        val result = repository.login("alice@example.com", "password123")
+        assertTrue(result is Result.Success)
+        assertTrue(sessionManager.isLoggedIn())
+        assertEquals("refresh-123", sessionManager.getRefreshToken())
+    }
+
+    @Test
+    fun `refresh session updates access token`() = runTest {
+        sessionManager.saveSession("old-access", -1, "refresh-123", 3600)
+        val result = repository.refreshSession()
+        assertTrue(result is Result.Success)
+        assertEquals("new-access", sessionManager.getToken())
     }
 
     private class CapturingAuthApi : AuthApi {
@@ -73,7 +93,24 @@ class AuthRepositoryImplTest {
         override suspend fun login(body: LoginRequestDto): ApiResponseDto<AuthTokenDto> {
             return ApiResponseDto(
                 success = true,
-                data = AuthTokenDto(accessToken = "token-123", expiresIn = 3600),
+                data = AuthTokenDto(
+                    accessToken = "token-123",
+                    expiresIn = 3600,
+                    refreshToken = "refresh-123",
+                    refreshExpiresIn = 2_592_000,
+                ),
+            )
+        }
+
+        override suspend fun refresh(body: RefreshRequestDto): ApiResponseDto<AuthTokenDto> {
+            return ApiResponseDto(
+                success = true,
+                data = AuthTokenDto(
+                    accessToken = "new-access",
+                    expiresIn = 3600,
+                    refreshToken = body.refreshToken,
+                    refreshExpiresIn = 3600,
+                ),
             )
         }
 

@@ -5,6 +5,7 @@ import com.aaspas.customer.data.remote.dto.AuthTokenDto
 import com.aaspas.customer.data.remote.dto.FavoriteActionDto
 import com.aaspas.customer.data.remote.dto.FavoritesDataDto
 import com.aaspas.customer.data.remote.dto.LoginRequestDto
+import com.aaspas.customer.data.remote.dto.RefreshRequestDto
 import com.aaspas.customer.data.remote.dto.RegisterRequestDto
 import com.aaspas.customer.data.remote.dto.UserAccountDto
 import retrofit2.http.Body
@@ -20,6 +21,9 @@ interface AuthApi {
 
     @POST("api/v1/auth/login")
     suspend fun login(@Body body: LoginRequestDto): ApiResponseDto<AuthTokenDto>
+
+    @POST("api/v1/auth/refresh")
+    suspend fun refresh(@Body body: RefreshRequestDto): ApiResponseDto<AuthTokenDto>
 
     @GET("api/v1/auth/me")
     suspend fun getCurrentUser(): ApiResponseDto<UserAccountDto>

@@ -17,6 +17,8 @@ interface AuthRepository {
         role: String = UserRoles.CUSTOMER,
     ): Result<Unit>
     suspend fun getCurrentUser(): Result<UserAccount>
+    suspend fun restoreSessionIfNeeded(): Result<Unit>
+    suspend fun refreshSession(): Result<Unit>
     fun isLoggedIn(): Boolean
     fun logout()
 }
