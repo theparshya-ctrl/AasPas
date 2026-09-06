@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AasPas</string>
+    <string name="app_update_title">New AasPas Beta update available</string>
+    <string name="app_update_version_available">Version %1$s is available.</string>
+    <string name="app_update_whats_new">What\'s new:</string>
+    <string name="app_update_bullet">• %1$s</string>
+    <string name="app_update_action_update">Update</string>
+    <string name="app_update_action_later">Later</string>
     <string name="section_current_location">Current Location</string>
     <string name="home_location_unavailable">Location unavailable</string>
     <string name="home_location_loading">Detecting location…</string>

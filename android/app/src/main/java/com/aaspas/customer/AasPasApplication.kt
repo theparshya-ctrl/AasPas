@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import com.aaspas.customer.data.remote.AdminApi
+import com.aaspas.customer.data.remote.AppApi
 import com.aaspas.customer.data.remote.AuthApi
 import com.aaspas.customer.data.remote.DetailsApi
 import com.aaspas.customer.data.remote.DiscoveryApi
@@ -34,6 +35,7 @@ import com.aaspas.customer.data.repository.OfferDetailsRepositoryImpl
 import com.aaspas.customer.data.repository.SearchRepositoryImpl
 import com.aaspas.customer.data.repository.ShopDetailsRepositoryImpl
 import com.aaspas.customer.data.repository.ShopOwnerRepositoryImpl
+import com.aaspas.customer.core.update.AppUpdateChecker
 import com.aaspas.customer.domain.repository.AdminRepository
 import com.aaspas.customer.domain.repository.AuthRepository
 import com.aaspas.customer.domain.repository.CategoryOffersRepository
@@ -88,6 +90,10 @@ class AasPasApplication : Application(), ImageLoaderFactory {
     }
 
     val homeApi: HomeApi by lazy { NetworkModule.publicApi() }
+
+    val appApi: AppApi by lazy { NetworkModule.publicApi() }
+
+    val appUpdateChecker: AppUpdateChecker by lazy { AppUpdateChecker(appApi) }
 
     val detailsApi: DetailsApi by lazy { NetworkModule.publicApi() }
 

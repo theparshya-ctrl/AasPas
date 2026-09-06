@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">आसपास</string>
+    <string name="app_update_title">नवीन AasPas Beta अपडेट उपलब्ध</string>
+    <string name="app_update_version_available">आवृत्ती %1$s उपलब्ध आहे.</string>
+    <string name="app_update_whats_new">नवीन काय:</string>
+    <string name="app_update_bullet">• %1$s</string>
+    <string name="app_update_action_update">अपडेट</string>
+    <string name="app_update_action_later">नंतर</string>
     <string name="section_current_location">सध्याचे स्थान</string>
     <string name="home_location_unavailable">स्थान उपलब्ध नाही</string>
     <string name="home_location_loading">स्थान शोधत आहे…</string>

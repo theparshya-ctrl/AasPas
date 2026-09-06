@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     s3_bucket_name: str | None = Field(default=None, validation_alias=AliasChoices("S3_BUCKET_NAME", "AWS_S3_BUCKET"))
     shop_photo_max_bytes: int = Field(default=5 * 1024 * 1024, ge=1024, le=20 * 1024 * 1024)
 
+    beta_app_version_file: str | None = None
+    beta_apk_storage_key: str = "beta/android/latest.apk"
+    beta_apk_download_url: str | None = None
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

@@ -38,6 +38,12 @@ Build-AasPas-APK.bat
 Build-AasPas-BETA-APK.bat
 ```
 
+For Beta in-app updates, use the full workflow in `docs/BETA_APK_RELEASE.md`:
+
+```powershell
+powershell -File scripts\publish_beta_release.ps1 -ReleaseNotes "Your change summary"
+```
+
 Flow:
 
 1. `assembleDebug`

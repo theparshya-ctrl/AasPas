@@ -7,8 +7,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import com.aaspas.customer.BuildConfig
+import com.aaspas.customer.core.update.AppUpdateOffer
+import com.aaspas.customer.presentation.components.AppUpdateDialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,6 +71,20 @@ fun AasPasNavHost(
     val context = LocalContext.current
     val app = context.applicationContext as AasPasApplication
     val scope = rememberCoroutineScope()
+
+    var appUpdateOffer by remember { mutableStateOf<AppUpdateOffer?>(null) }
+    var appUpdateDismissed by remember { mutableStateOf(false) }
+    var appUpdateChecked by remember { mutableStateOf(false) }
+
+    LaunchedEffect(app) {
+        if (appUpdateChecked) return@LaunchedEffect
+        appUpdateChecked = true
+        if (BuildConfig.APP_ENVIRONMENT != "BETA") return@LaunchedEffect
+        val offer = app.appUpdateChecker.checkForUpdate(BuildConfig.VERSION_CODE)
+        if (offer != null && !appUpdateDismissed) {
+            appUpdateOffer = offer
+        }
+    }
 
     LaunchedEffect(app) {
         app.realtimeNotificationCoordinator.start(scope)
@@ -520,6 +542,19 @@ fun AasPasNavHost(
                 onNotificationClick = { navController.navigate(Routes.NOTIFICATIONS) },
                 modifier = Modifier.align(Alignment.TopCenter),
             )
+            appUpdateOffer?.let { offer ->
+                AppUpdateDialog(
+                    offer = offer,
+                    onUpdate = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(offer.downloadUrl))
+                        context.startActivity(intent)
+                    },
+                    onLater = {
+                        appUpdateDismissed = true
+                        appUpdateOffer = null
+                    },
+                )
+            }
         }
     }
 }

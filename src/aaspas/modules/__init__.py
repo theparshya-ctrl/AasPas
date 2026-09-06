@@ -21,6 +21,7 @@ def get_domain_modules() -> list[ModuleInfo]:
     """
     from aaspas.modules.admin.router import router as admin_router
     from aaspas.modules.analytics.router import router as analytics_router
+    from aaspas.modules.app.router import router as app_router
     from aaspas.modules.auth.router import router as auth_router
     from aaspas.modules.category.router import router as category_router
     from aaspas.modules.customer.router import router as customer_router
@@ -36,6 +37,7 @@ def get_domain_modules() -> list[ModuleInfo]:
 
     return [
         ModuleInfo("auth", "/auth", auth_router, description="Authentication & user management"),
+        ModuleInfo("app", "/app", app_router, description="App metadata & Beta updates"),
         ModuleInfo("customer", "/customers", customer_router, description="Customer profiles"),
         ModuleInfo("favorite", "/favorites", favorite_router, description="Customer favorites"),
         ModuleInfo("shop", "/shops", shop_router, description="Shop/merchant management"),
