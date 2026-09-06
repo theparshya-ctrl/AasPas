@@ -14,6 +14,13 @@ class SelectedLocationStore(context: Context) {
 
     fun current(): SelectedLocation = _selectedLocation.value
 
+    /** Epoch millis when the current coordinates were last persisted. */
+    fun savedAtEpochMs(): Long = prefs.getLong(KEY_SAVED_AT_MS, 0L)
+
+    fun isLocationFresh(nowEpochMs: Long = System.currentTimeMillis()): Boolean {
+        return LocationFreshness.isFresh(savedAtEpochMs(), nowEpochMs)
+    }
+
     fun setManual(displayName: String, latitude: Double, longitude: Double) {
         persist(
             SelectedLocation(
@@ -41,7 +48,17 @@ class SelectedLocationStore(context: Context) {
         _selectedLocation.value = SelectedLocation.None
     }
 
+    /** Updates display name only; coordinates and saved timestamp are unchanged. */
+    fun updateDisplayNameOnly(displayName: String?) {
+        val current = _selectedLocation.value
+        if (!current.hasCoordinates) return
+        val trimmed = displayName?.trim()?.takeIf { it.isNotEmpty() }
+        prefs.edit().putString(KEY_DISPLAY_NAME, trimmed).apply()
+        _selectedLocation.value = current.copy(displayName = trimmed)
+    }
+
     private fun persist(location: SelectedLocation) {
+        val nowMs = System.currentTimeMillis()
         prefs.edit()
             .putString(KEY_DISPLAY_NAME, location.displayName)
             .putString(KEY_SOURCE, location.source.name)
@@ -49,9 +66,11 @@ class SelectedLocationStore(context: Context) {
                 if (location.latitude != null && location.longitude != null) {
                     putLong(KEY_LAT_BITS, location.latitude.toRawBits())
                     putLong(KEY_LNG_BITS, location.longitude.toRawBits())
+                    putLong(KEY_SAVED_AT_MS, nowMs)
                 } else {
                     remove(KEY_LAT_BITS)
                     remove(KEY_LNG_BITS)
+                    remove(KEY_SAVED_AT_MS)
                 }
             }
             .apply()
@@ -81,5 +100,6 @@ class SelectedLocationStore(context: Context) {
         private const val KEY_LAT_BITS = "latitude_bits"
         private const val KEY_LNG_BITS = "longitude_bits"
         private const val KEY_SOURCE = "source"
+        private const val KEY_SAVED_AT_MS = "saved_at_ms"
     }
 }

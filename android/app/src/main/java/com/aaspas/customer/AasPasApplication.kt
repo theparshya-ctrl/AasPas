@@ -79,11 +79,11 @@ class AasPasApplication : Application(), ImageLoaderFactory {
         AndroidGeocoderLocationSearchService(this)
     }
 
-    val homeApi: HomeApi by lazy { NetworkModule.api() }
+    val homeApi: HomeApi by lazy { NetworkModule.publicApi() }
 
     val detailsApi: DetailsApi by lazy { NetworkModule.publicApi() }
 
-    val discoveryApi: DiscoveryApi by lazy { NetworkModule.api() }
+    val discoveryApi: DiscoveryApi by lazy { NetworkModule.publicApi() }
 
     val authApi: AuthApi by lazy { NetworkModule.api() }
 

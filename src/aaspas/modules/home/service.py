@@ -60,14 +60,24 @@ class HomeService:
             available=has_coords,
         )
 
-        distance_map = self._shop_distance_map(params) if has_coords else {}
+        nearby_rows: list[tuple[Shop, Location, Category | None, float]] | None = None
+        if has_coords:
+            assert params.latitude is not None and params.longitude is not None
+            radius = params.radius_km or self.settings.nearby_radius_km
+            nearby_rows = self._query_nearby_shop_rows(params.latitude, params.longitude, radius)
+
+        distance_map = (
+            {shop.id: dist for shop, _loc, _cat, dist in nearby_rows}
+            if nearby_rows is not None
+            else {}
+        )
 
         return HomeResponse(
             location=location,
             categories=categories,
             today_offers=self._map_offers(today_rows, now, distance_map, saved_offers),
             coming_soon=self._map_offers(soon_rows, now, distance_map, saved_offers),
-            nearby_shops=self._nearby_shops(params, now, saved_shops) if has_coords else [],
+            nearby_shops=self._map_nearby_shops(nearby_rows, saved_shops) if nearby_rows is not None else [],
         )
 
     def _load_categories(self) -> list[HomeCategoryItem]:
@@ -121,27 +131,14 @@ class HomeService:
             )
         return items
 
-    def _resolve_category_name(self, shop: Shop, category: Category | None) -> str | None:
-        if category is not None:
-            return category.name
-        return shop.category
-
-    def _shop_distance_map(self, params: HomeQueryParams) -> dict[uuid.UUID, float]:
-        assert params.latitude is not None and params.longitude is not None
-        radius = params.radius_km or self.settings.nearby_radius_km
-        nearby = self._query_nearby_shop_rows(params.latitude, params.longitude, radius)
-        return {shop.id: dist for shop, _loc, dist in nearby}
-
-    def _nearby_shops(
-        self, params: HomeQueryParams, now: datetime, saved_shop_ids: set[uuid.UUID]
+    def _map_nearby_shops(
+        self,
+        rows: list[tuple[Shop, Location, Category | None, float]],
+        saved_shop_ids: set[uuid.UUID],
     ) -> list[HomeShopItem]:
-        assert params.latitude is not None and params.longitude is not None
-        radius = params.radius_km or self.settings.nearby_radius_km
-        rows = self._query_nearby_shop_rows(params.latitude, params.longitude, radius)
         limit = self.settings.home_nearby_shops_limit
         items: list[HomeShopItem] = []
-        for shop, location, dist in rows[:limit]:
-            category = self.db.get(Category, shop.category_id) if shop.category_id else None
+        for shop, location, category, dist in rows[:limit]:
             items.append(
                 HomeShopItem(
                     shop_id=shop.id,
@@ -161,16 +158,22 @@ class HomeService:
             )
         return items
 
+    def _resolve_category_name(self, shop: Shop, category: Category | None) -> str | None:
+        if category is not None:
+            return category.name
+        return shop.category
+
     def _query_nearby_shop_rows(
         self, latitude: float, longitude: float, radius_km: float
-    ) -> list[tuple[Shop, Location, float]]:
+    ) -> list[tuple[Shop, Location, Category | None, float]]:
         min_lat, max_lat, min_lon, max_lon = bounding_box(latitude, longitude, radius_km)
         rows = (
-            self.db.query(Shop, Location)
+            self.db.query(Shop, Location, Category)
             .join(
                 Location,
                 and_(Location.shop_id == Shop.id, Location.is_primary.is_(True)),
             )
+            .outerjoin(Category, Shop.category_id == Category.id)
             .filter(Shop.status == ShopStatus.ACTIVE.value)
             .filter(Location.latitude.isnot(None))
             .filter(Location.longitude.isnot(None))
@@ -181,13 +184,13 @@ class HomeService:
             .all()
         )
 
-        scored: list[tuple[Shop, Location, float]] = []
-        for shop, location in rows:
+        scored: list[tuple[Shop, Location, Category | None, float]] = []
+        for shop, location, category in rows:
             dist = haversine_km(latitude, longitude, location.latitude, location.longitude)
             if dist <= radius_km:
-                scored.append((shop, location, dist))
+                scored.append((shop, location, category, dist))
 
-        scored.sort(key=lambda row: row[2])
+        scored.sort(key=lambda row: row[3])
         return scored
 
     @staticmethod

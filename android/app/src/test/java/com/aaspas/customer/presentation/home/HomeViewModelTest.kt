@@ -211,6 +211,40 @@ class HomeViewModelTest {
         assertEquals("Festive Preview", comingSoon.title)
     }
 
+    @Test
+    fun `duplicate refresh for same coordinates is skipped`() = runTest {
+        repository.result = Result.Success(sampleFeed())
+
+        viewModel.loadHome(18.63, 73.80)
+        advanceUntilIdle()
+        assertEquals(1, repository.callCount)
+
+        viewModel.loadHome(18.63, 73.80, isRefresh = true)
+        advanceUntilIdle()
+        assertEquals(1, repository.callCount)
+
+        viewModel.loadHome(18.63, 73.80, isRefresh = true, forceReload = true)
+        advanceUntilIdle()
+        assertEquals(2, repository.callCount)
+    }
+
+    @Test
+    fun `refresh preserves loaded sections while reloading`() = runTest {
+        repository.result = Result.Success(sampleFeed())
+
+        viewModel.loadHome(18.63, 73.80)
+        advanceUntilIdle()
+        val itemsBeforeRefresh = viewModel.uiState.value.todayOffers.items
+
+        viewModel.loadHome(18.63, 73.80, isRefresh = true, forceReload = true)
+        assertEquals(SectionStatus.Loaded, viewModel.uiState.value.todayOffers.status)
+        assertEquals(itemsBeforeRefresh.size, viewModel.uiState.value.todayOffers.items.size)
+
+        advanceUntilIdle()
+        assertEquals(SectionStatus.Loaded, viewModel.uiState.value.todayOffers.status)
+        assertFalse(viewModel.uiState.value.isRefreshing)
+    }
+
     private fun sampleFeed(
         comingSoon: List<Offer> = emptyList(),
     ) = HomeFeed(
@@ -241,8 +275,10 @@ class HomeViewModelTest {
         var result: Result<HomeFeed> = Result.Failure(AppError.Server)
         var lastLatitude: Double? = null
         var lastLongitude: Double? = null
+        var callCount: Int = 0
 
         override suspend fun getHome(latitude: Double?, longitude: Double?): Result<HomeFeed> {
+            callCount += 1
             lastLatitude = latitude
             lastLongitude = longitude
             return result

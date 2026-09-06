@@ -8,6 +8,7 @@ import com.aaspas.customer.domain.model.HomeFeed
 import com.aaspas.customer.domain.model.Offer
 import com.aaspas.customer.domain.model.Shop
 import com.aaspas.customer.domain.model.LocationSource
+import com.aaspas.customer.core.location.LocationFreshness
 import com.aaspas.customer.core.notifications.RealtimeNotificationStore
 import com.aaspas.customer.core.startup.StartupTracer
 import com.aaspas.customer.domain.repository.AuthRepository
@@ -68,8 +69,17 @@ class HomeViewModel(
         isRefresh: Boolean = false,
         locationSource: LocationSource = lastLocationSource,
         displayName: String? = lastDisplayName,
+        forceReload: Boolean = false,
     ) {
-        if (!isRefresh && loadJob?.isActive == true) return
+        if (!forceReload && !isRefresh && loadJob?.isActive == true) return
+        if (
+            !forceReload &&
+            isRefresh &&
+            hasLoadedInitial &&
+            LocationFreshness.sameCoordinates(lastLatitude, lastLongitude, latitude, longitude)
+        ) {
+            return
+        }
 
         lastLatitude = latitude
         lastLongitude = longitude
@@ -89,7 +99,7 @@ class HomeViewModel(
 
             _uiState.update { current ->
                 current.copy(
-                    isInitialLoad = !isRefresh && !hasLoadedInitial,
+                    isInitialLoad = false,
                     isRefreshing = true,
                     globalError = null,
                     globalErrorType = null,
@@ -124,6 +134,7 @@ class HomeViewModel(
             isRefresh = true,
             locationSource = lastLocationSource,
             displayName = lastDisplayName,
+            forceReload = true,
         )
     }
 
@@ -237,6 +248,7 @@ class HomeViewModel(
         source: LocationSource,
         locationDenied: Boolean = false,
         isRefresh: Boolean = true,
+        forceReload: Boolean = false,
     ) {
         loadHome(
             latitude = latitude,
@@ -245,6 +257,7 @@ class HomeViewModel(
             isRefresh = isRefresh,
             locationSource = source,
             displayName = displayName,
+            forceReload = forceReload,
         )
     }
 

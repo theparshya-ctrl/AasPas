@@ -72,6 +72,7 @@ import com.aaspas.customer.core.common.AppError
 import com.aaspas.customer.core.location.AndroidLocationProvider
 
 import com.aaspas.customer.core.location.LocalityResolver
+import com.aaspas.customer.core.location.LocationFreshness
 
 import com.aaspas.customer.domain.model.Category
 
@@ -90,8 +91,6 @@ import com.aaspas.customer.presentation.components.EmptyState
 import com.aaspas.customer.presentation.components.ErrorState
 
 import com.aaspas.customer.presentation.components.GlobalErrorBanner
-
-import com.aaspas.customer.presentation.components.HomeLoadingSkeleton
 
 import com.aaspas.customer.presentation.components.NotificationBellButton
 import com.aaspas.customer.presentation.components.LocationHeader
@@ -267,29 +266,38 @@ fun HomeRoute(
 
 
 
-    fun loadFromSelectedLocation(location: SelectedLocation, isRefresh: Boolean) {
-
+    fun loadFromSelectedLocation(
+        location: SelectedLocation,
+        isRefresh: Boolean,
+        forceReload: Boolean = false,
+    ) {
         viewModel.applySelectedLocation(
-
             latitude = location.latitude,
-
             longitude = location.longitude,
-
             displayName = location.displayName,
-
             source = location.source,
-
             locationDenied = false,
-
             isRefresh = isRefresh,
-
+            forceReload = forceReload,
         )
-
     }
 
+    suspend fun refreshGpsInBackground() {
+        if (!locationProvider.hasLocationPermission()) return
+        val coords = locationProvider.getLastLocation() ?: return
+        val current = app.selectedLocationStore.current()
+        val locality = localityResolver.resolveLocality(coords)
+        if (LocationFreshness.isMaterialChange(current, coords.latitude, coords.longitude)) {
+            app.selectedLocationStore.setCurrentGps(locality, coords.latitude, coords.longitude)
+            return
+        }
+        if (!locality.isNullOrBlank() && locality != current.displayName) {
+            viewModel.setLocalityName(locality, LocationSource.CURRENT_GPS)
+            app.selectedLocationStore.updateDisplayNameOnly(locality)
+        }
+    }
 
-
-    suspend fun loadFromGps(isRefresh: Boolean) {
+    suspend fun loadFromGps(isRefresh: Boolean, forceReload: Boolean = isRefresh) {
 
         val coords = locationProvider.getLastLocation()
 
@@ -320,21 +328,14 @@ fun HomeRoute(
         app.selectedLocationStore.setCurrentGps(locality, coords.latitude, coords.longitude)
 
         viewModel.applySelectedLocation(
-
             latitude = coords.latitude,
-
             longitude = coords.longitude,
-
             displayName = locality,
-
             source = LocationSource.CURRENT_GPS,
-
             locationDenied = false,
-
             isRefresh = isRefresh,
-
+            forceReload = forceReload,
         )
-
     }
 
 
@@ -444,17 +445,15 @@ fun HomeRoute(
         }
 
         if (restored.source == LocationSource.CURRENT_GPS && restored.hasCoordinates) {
-
-            loadFromSelectedLocation(restored, isRefresh = false)
-
             initialLocationHandled = true
-
             previousLocation = restored
-
-            requestGpsLocation(isRefresh = true)
-
+            if (app.selectedLocationStore.isLocationFresh()) {
+                loadFromSelectedLocation(restored, isRefresh = false)
+                scope.launch { refreshGpsInBackground() }
+            } else {
+                scope.launch { loadFromGps(isRefresh = false) }
+            }
             return@LaunchedEffect
-
         }
 
         requestGpsLocation(isRefresh = false)
@@ -468,19 +467,28 @@ fun HomeRoute(
 
 
     LaunchedEffect(selectedLocation) {
-
         if (!initialLocationHandled) return@LaunchedEffect
+        val prior = previousLocation
+        if (prior == selectedLocation) return@LaunchedEffect
 
-        if (previousLocation == selectedLocation) return@LaunchedEffect
+        val materialChange = prior == null ||
+            !prior.hasCoordinates ||
+            !selectedLocation.hasCoordinates ||
+            LocationFreshness.isMaterialChange(prior, selectedLocation)
 
         previousLocation = selectedLocation
 
-        if (selectedLocation.hasCoordinates) {
-
-            loadFromSelectedLocation(selectedLocation, isRefresh = true)
-
+        if (selectedLocation.hasCoordinates && materialChange) {
+            loadFromSelectedLocation(
+                location = selectedLocation,
+                isRefresh = prior?.hasCoordinates == true,
+            )
+        } else if (
+            !selectedLocation.displayName.isNullOrBlank() &&
+            selectedLocation.displayName != prior?.displayName
+        ) {
+            viewModel.setLocalityName(selectedLocation.displayName, selectedLocation.source)
         }
-
     }
 
 
@@ -494,19 +502,12 @@ fun HomeRoute(
             onRetry = viewModel::retry,
 
             onRefresh = {
-
                 val current = app.selectedLocationStore.current()
-
                 if (current.source == LocationSource.MANUAL && current.hasCoordinates) {
-
-                    loadFromSelectedLocation(current, isRefresh = true)
-
+                    loadFromSelectedLocation(current, isRefresh = true, forceReload = true)
                 } else {
-
-                    requestGpsLocation(isRefresh = true)
-
+                    scope.launch { loadFromGps(isRefresh = true, forceReload = true) }
                 }
-
             },
 
             onOfferClick = onOfferClick,
@@ -584,16 +585,6 @@ fun HomeScreen(
         modifier = Modifier.fillMaxSize(),
 
     ) {
-
-        if (uiState.isInitialLoad && uiState.globalError == null) {
-
-            HomeLoadingSkeleton(modifier = Modifier.padding(top = AasPasSpacing.sm))
-
-            return@PullToRefreshBox
-
-        }
-
-
 
         LazyColumn(
 
