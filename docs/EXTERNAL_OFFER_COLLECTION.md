@@ -1,29 +1,8 @@
 # External Offer Collection Workflow
 
-Phase 1 provides the import system only. Real public offers are collected manually and imported into **Beta Neon PostgreSQL** — never into DEV `dev.db`.
+Phase 1 provides the import system. Real public offers are collected manually and imported into **Beta Neon PostgreSQL** — never into DEV `dev.db`.
 
-## Daily workflow
-
-1. Collect current public offers from allowed sources (shop websites, public social posts, flyers with verifiable URLs).
-2. Record each offer in a JSON file using the structure below.
-3. Assign a stable `external_source_key` per offer (deduplication key).
-4. Set `collected_at` to the UTC timestamp when the offer was collected.
-5. Validate the file without writing:
-
-```powershell
-cd H:\AasPas
-$env:PYTHONPATH = "src"
-python scripts/import_external_offers.py path\to\collected_offers.json --dry-run
-```
-
-6. Import into Beta only after validation:
-
-```powershell
-python scripts/import_external_offers.py path\to\collected_offers.json
-```
-
-7. Re-check customer home/search for the target area after import.
-8. Remove or let expire stale offers when public sources show they ended.
+CURSOR-063 adds a **repeatable refresh workflow** with structured audit reports. There is **no automatic web scraper** and **no paid scheduler** — collection remains manual; execution is manual and automation-ready.
 
 ## Target areas
 
@@ -34,6 +13,107 @@ python scripts/import_external_offers.py path\to\collected_offers.json
 - Manjri Budruk
 - Saswad
 - Nearby relevant areas
+
+## Repeatable workflow
+
+### 1. Collect (manual)
+
+1. Visit **public** sources only (shop websites, public social posts, flyers with verifiable URLs).
+2. Copy **exact offer wording** — do not paraphrase discounts.
+3. Record business-identifying address (street/venue + city). Never fabricate GPS coordinates.
+4. Assign a stable `external_source_key` per offer (deduplication key).
+5. Set `collected_at` to the UTC timestamp when the offer was collected.
+6. Use `ends_at` only when the public source shows a fixed end date; leave **null** for ongoing/current offers.
+7. Save records in a JSON file using `data/external_offers/template.json`.
+
+### 2. Validate (dry run)
+
+```powershell
+cd H:\AasPas
+$env:PYTHONPATH = "src"
+python scripts/import_external_offers.py path\to\collected_offers.json --dry-run
+```
+
+### 3. Import or refresh
+
+**Standard import** (new/updated offers only):
+
+```powershell
+python scripts/import_external_offers.py path\to\collected_offers.json --report reports\external_import.json
+```
+
+**Refresh run** (import + stale-candidate report; **does not auto-delete** missing offers):
+
+```powershell
+python scripts/import_external_offers.py path\to\collected_offers.json --refresh --report reports\external_refresh.json
+```
+
+Optional: `--allow-needs-review` for area-only addresses flagged NEEDS_REVIEW.
+
+Environment: load `.env.beta` automatically (or set `AASPAS_ENV_FILE`). Requires Neon `DATABASE_URL` and `APP_ENV=staging`.
+
+### 4. Verify
+
+1. Review console summary and JSON report.
+2. Check customer Home/Search for target area.
+3. Review `stale_candidates` in refresh reports — investigate offers missing from the latest file before deactivating.
+
+### 5. Audit / report
+
+Each run produces:
+
+| Metric | Meaning |
+|--------|---------|
+| `created` | New external offer |
+| `updated` | Existing key with changed fields |
+| `unchanged` | Existing key, identical payload (idempotent re-import) |
+| `rejected` | Failed validation policy |
+| `duplicate_in_file` | Same `external_source_key` twice in one JSON file |
+| `stale_candidates` | Active external offers in Beta **not** present in this refresh file (report only) |
+
+An `audit_logs` row is written per run (`module=external`, `resource_type=external_offer_import`).
+
+Use `--report path.json` for machine-readable output. Reports must not be committed if they contain production data paths.
+
+## Refresh behavior
+
+| Situation | Behavior |
+|-----------|----------|
+| **New offer** | Inserted as EXTERNAL / `is_verified=false` |
+| **Existing unchanged** | Counted as `unchanged`; no DB write |
+| **Existing with updated source info** | Updated in place (title, source_url, collected_at, etc.) |
+| **Duplicate in same JSON file** | Skipped with `duplicate_in_file` |
+| **Missing from refresh file** | Listed as `stale_candidate` — **not** auto-expired or deleted |
+| **Explicitly expired on source** | Re-import with `ends_at` in the past → rejected at import |
+
+Never invent expiry dates. Never auto-delete because an offer was absent from one collection run.
+
+## Expiry handling
+
+- Ongoing offers: `ends_at = null` — remain active until explicit evidence of end.
+- Fixed-end offers: set `ends_at` from the public source.
+- To deactivate: re-import with past `ends_at` **only when the source explicitly ended**, or follow manual review for stale candidates across multiple refresh runs.
+
+## Validation policy
+
+Rejected automatically:
+
+- Vague wording ("great deals", "visit us")
+- Missing / invalid `source_name`, `source_url`, `collected_at`
+- Missing identifiable discount
+- Explicitly expired `ends_at`
+- Invalid `external_source_key`
+
+NEEDS_REVIEW (skipped unless `--allow-needs-review`):
+
+- Area-only address without street/venue detail
+
+Always enforced on import:
+
+- `source_type=EXTERNAL`
+- `is_verified=false`
+- System owner: `external-data@aaspas.internal`
+- No notification events
 
 ## Collector field guide
 
@@ -47,70 +127,32 @@ Use this when collecting from public sources. The importer sets `source_type=EXT
 | Area / city | `address.city` | Yes |
 | State | `address.state` | Recommended |
 | Pincode | `address.postal_code` | Recommended |
-| Latitude | `address.latitude` | When verified from public source |
-| Longitude | `address.longitude` | When verified from public source |
-| Offer title | `title` | Yes — preserve exact public wording (including "Up to …") |
+| Latitude | `address.latitude` | When verified from public source only |
+| Longitude | `address.longitude` | When verified from public source only |
+| Offer title | `title` | Yes — preserve exact public wording |
 | Offer description | `description` | Recommended |
-| Offer type | `discount_type` | Yes — `percentage`, `up_to_percentage`, `fixed`, `up_to_fixed` |
+| Offer type | `discount_type` | Yes |
 | Discount value | `discount_value` | Yes |
-| Start date/time | `starts_at` | Optional — omit when source has no start date |
-| Expiry date/time | `ends_at` | Optional — **omit when source has no fixed expiry** |
-| Source label | `source_name` | Yes — e.g. "Shop website", "Instagram post" |
+| Start date/time | `starts_at` | Optional |
+| Expiry date/time | `ends_at` | Optional — omit when no fixed expiry |
+| Source label | `source_name` | Yes |
 | Source URL | `source_url` | Yes — public http(s) link |
 | Collected date/time | `collected_at` | Yes — ISO 8601 UTC |
 | Unique dedup key | `external_source_key` | Yes — min 8 chars, stable per offer |
-| Stable shop key | `shop_external_source_key` | Optional — auto-generated if omitted |
+| Stable shop key | `shop_external_source_key` | Optional |
 
 ## Collection rules
 
-1. **Public sources only** — information visible without logging in.
-2. **No login/paywall/CAPTCHA bypass** — if a source requires authentication or scraping tricks, skip it.
-3. **No fabricated offers** — every field must come from a real public source.
-4. **No expired offers** — skip offers explicitly expired on the source; do **not** invent an expiry date when the source shows an ongoing current offer.
-5. **Exact local relevance** — shop must serve the target Pune-area locations above.
-6. **Source URL required** — every record needs a verifiable public link.
-7. **Collected date required** — record when you found the offer (`collected_at`).
-8. **Expiry handling** — if the public source provides a fixed end date, use `ends_at`. If the source shows an ongoing/current offer with no fixed expiry, **leave `ends_at` null**. Never assign artificial 30/60/90-day expiries. Re-import updates `collected_at`; deactivate only when the source explicitly expires or disappears after repeated checks.
-9. **"Up to" offers are valid** — preserve exact wording such as "Save up to 70%"; use `discount_type=up_to_percentage` when appropriate. Do not convert "up to" into a guaranteed discount.
-10. **Duplicate handling** — same `external_source_key` updates the existing Beta record instead of creating a duplicate.
-11. **Customer disclosure** — external offers always show **"Not confirmed by AasPas"** in the app; they are never AasPas Verified.
-12. **Images** — do not copy or rehost external images unless you have clear permission; leave photos empty unless AasPas has rights.
-13. **Removing stale offers** — when a source explicitly shows an offer ended, re-import with `ends_at` in the past or mark for deactivation per review workflow. Do not auto-expire solely because days passed.
-14. **Daily collection workflow**:
+1. **Public sources only** — no login, paywall, or CAPTCHA bypass.
+2. **No fabricated offers, discounts, or coordinates.**
+3. **No expired offers** unless documenting explicit end on source.
+4. **Exact local relevance** — Pune-area targets above.
+5. **Customer disclosure** — always "Not confirmed by AasPas".
+6. **Images** — do not rehost without permission.
 
-```
-Public source
-    → current offer found
-    → business/location validation
-    → offer validity check
-    → duplicate check
-    → EXTERNAL / NOT_CONFIRMED
-    → import or update (refresh collected_at)
-    → daily refresh
-```
+## JSON structure
 
-Manual collection is acceptable initially. Do not bypass login walls, paywalls, CAPTCHA, or access restrictions.
-
-## JSON file structure
-
-Start from `data/external_offers/template.json` (empty `offers` array). See `docs/EXTERNAL_OFFER_COLLECTION.md` example for one illustrative record shape.
-
-### Address object
-
-```json
-{
-  "address_line1": "Shop 12, Main Road",
-  "address_line2": null,
-  "city": "Pimpri-Chinchwad",
-  "state": "MH",
-  "postal_code": "411018",
-  "country": "IN",
-  "latitude": 18.6298,
-  "longitude": 73.7997
-}
-```
-
-### Example record (illustrative — replace with real collected data)
+Start from `data/external_offers/template.json` (empty `offers` array).
 
 ```json
 {
@@ -124,16 +166,11 @@ Start from `data/external_offers/template.json` (empty `offers` array). See `doc
         "city": "Pimpri-Chinchwad",
         "state": "MH",
         "postal_code": "411018",
-        "country": "IN",
-        "latitude": 18.6298,
-        "longitude": 73.7997
+        "country": "IN"
       },
       "title": "Example offer title",
-      "description": "Example description from public source",
       "discount_type": "percentage",
       "discount_value": 10,
-      "starts_at": "2026-09-01T00:00:00Z",
-      "ends_at": "2026-09-30T23:59:59Z",
       "source_name": "Public website",
       "source_url": "https://example.com/offers/sample",
       "collected_at": "2026-08-31T12:00:00Z"
@@ -141,15 +178,6 @@ Start from `data/external_offers/template.json` (empty `offers` array). See `doc
   ]
 }
 ```
-
-## Importer behavior
-
-- Sets `source_type=EXTERNAL` and `is_verified=false` on every imported offer.
-- Ongoing offers may have `ends_at` null — shown as active until explicitly expired or removed.
-- **"Up to"** titles are preserved verbatim; use `up_to_percentage` / `up_to_fixed` discount types when helpful.
-- External offers **cannot** be approved as AasPas Verified.
-- Import does **not** trigger notification events.
-- Duplicate `external_source_key` values update the existing record.
 
 ## Safety checks
 
@@ -159,6 +187,32 @@ The importer refuses:
 - `localhost` / `127.0.0.1` database URLs
 - `APP_ENV=development`
 
-Use `.env.beta` (or `AASPAS_ENV_FILE`) with the Neon `DATABASE_URL` and `APP_ENV=staging`.
+DEV must remain untouched.
 
-DEV `dev.db`, local uploads, and Tailscale settings must remain untouched.
+## Automation
+
+Render Free Beta has **no scheduled worker** in this project. Do **not** run a fake cron.
+
+Manual execution is the supported path:
+
+1. Collect JSON locally.
+2. Run import/refresh script against Neon via `.env.beta`.
+3. Review report.
+
+Future automation can wrap the same script when infrastructure allows.
+
+## Rollback / recovery
+
+- **Bad import row**: fix JSON and re-run; use stable `external_source_key`.
+- **Duplicate created in error**: dedup key prevents duplicates on re-run.
+- **Stale offer still visible**: expected until explicit deactivation — check `stale_candidates`, verify source, then re-import with past `ends_at` if source confirms end.
+- **Wrong update**: re-import corrected JSON with same `external_source_key`.
+- **Audit trail**: query `audit_logs` where `resource_type='external_offer_import'`.
+
+## Importer behavior summary
+
+- Sets `source_type=EXTERNAL`, `is_verified=false`.
+- Ongoing offers may have `ends_at` null.
+- External offers cannot be AasPas Verified.
+- No notification events on import.
+- Duplicate `external_source_key` updates existing record.

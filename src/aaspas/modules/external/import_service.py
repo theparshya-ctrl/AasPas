@@ -5,14 +5,22 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from aaspas.common.audit import AuditAction, record_audit
 from aaspas.common.exceptions import ValidationAppError
 from aaspas.common.source_type import SourceType
 from aaspas.config import get_settings
 from aaspas.modules.category.models import Category
 from aaspas.modules.category.repository import CategoryRepository
+from aaspas.modules.external.report import (
+    ExternalImportRowOutcome,
+    ExternalImportRowResult,
+    ExternalOfferImportReport,
+    ExternalStaleCandidate,
+)
 from aaspas.modules.external.schemas import ExternalOfferImportRecord
 from aaspas.modules.external.system_owner import get_or_create_external_data_owner
 from aaspas.modules.external.validation import validate_for_import
@@ -68,9 +76,9 @@ class ExternalOfferImportService:
         )
         owner = get_or_create_external_data_owner(self.db)
         shop = self._upsert_shop(record, owner_id=owner.id)
-        offer, created = self._upsert_offer(record, shop=shop, now=now)
+        offer, action = self._upsert_offer(record, shop=shop, now=now)
         self.db.commit()
-        return ("created" if created else "updated", offer.id)
+        return action, offer.id
 
     def import_many(
         self,
@@ -78,42 +86,131 @@ class ExternalOfferImportService:
         *,
         now: datetime | None = None,
         allow_needs_review: bool = False,
-    ) -> dict[str, int | list[str]]:
+        source_file: str | None = None,
+        mode: str = "import",
+        include_stale_report: bool = False,
+    ) -> ExternalOfferImportReport:
         aware_now = now or datetime.now(UTC)
-        created = 0
-        updated = 0
-        skipped = 0
-        errors: list[str] = []
+        report = ExternalOfferImportReport(
+            run_at=aware_now,
+            source_file=source_file,
+            mode=mode,
+            candidates=len(records),
+        )
         seen_keys: set[str] = set()
+        imported_keys: set[str] = set()
+
         for index, record in enumerate(records, start=1):
             if record.external_source_key in seen_keys:
-                skipped += 1
-                errors.append(f"row {index}: duplicate external_source_key in import file")
+                report.apply_row(
+                    ExternalImportRowResult(
+                        row=index,
+                        external_source_key=record.external_source_key,
+                        outcome=ExternalImportRowOutcome.DUPLICATE_IN_FILE,
+                        message="duplicate external_source_key in import file",
+                    )
+                )
                 continue
             seen_keys.add(record.external_source_key)
+
             try:
-                action, _offer_id = self.import_record(
+                action, offer_id = self.import_record(
                     record,
                     now=aware_now,
                     allow_needs_review=allow_needs_review,
                 )
-                if action == "created":
-                    created += 1
-                else:
-                    updated += 1
+                imported_keys.add(record.external_source_key)
+                outcome = ExternalImportRowOutcome(action)
+                report.apply_row(
+                    ExternalImportRowResult(
+                        row=index,
+                        external_source_key=record.external_source_key,
+                        outcome=outcome,
+                        offer_id=str(offer_id),
+                    )
+                )
             except ValidationAppError as exc:
-                skipped += 1
-                errors.append(f"row {index}: {exc.message}")
+                report.apply_row(
+                    ExternalImportRowResult(
+                        row=index,
+                        external_source_key=record.external_source_key,
+                        outcome=ExternalImportRowOutcome.REJECTED,
+                        message=exc.message,
+                    )
+                )
             except Exception:
                 self.db.rollback()
-                skipped += 1
-                errors.append(f"row {index}: unexpected error")
-        return {
-            "created": created,
-            "updated": updated,
-            "skipped": skipped,
-            "errors": errors,
-        }
+                report.apply_row(
+                    ExternalImportRowResult(
+                        row=index,
+                        external_source_key=record.external_source_key,
+                        outcome=ExternalImportRowOutcome.ERROR,
+                        message="unexpected error",
+                    )
+                )
+
+        if include_stale_report:
+            report.stale_candidates = self.find_stale_external_offers(
+                input_keys=imported_keys,
+                now=aware_now,
+            )
+
+        self._record_run_audit(report)
+        self.db.commit()
+        return report
+
+    def find_stale_external_offers(
+        self,
+        *,
+        input_keys: set[str],
+        now: datetime,
+    ) -> list[ExternalStaleCandidate]:
+        """Active external offers missing from the latest collection file (report only)."""
+        aware_now = self._ensure_aware(now)
+        stale: list[ExternalStaleCandidate] = []
+        offers = (
+            self.db.query(Offer)
+            .filter(
+                Offer.source_type == SourceType.EXTERNAL.value,
+                Offer.external_source_key.isnot(None),
+            )
+            .all()
+        )
+        for offer in offers:
+            key = offer.external_source_key or ""
+            if not key or key in input_keys:
+                continue
+            if offer.status == OfferStatus.EXPIRED.value:
+                continue
+            if offer.ends_at is not None and self._ensure_aware(offer.ends_at) <= aware_now:
+                continue
+            shop = self.db.get(Shop, offer.shop_id)
+            stale.append(
+                ExternalStaleCandidate(
+                    external_source_key=key,
+                    offer_id=str(offer.id),
+                    title=offer.title,
+                    shop_name=shop.name if shop else None,
+                    last_collected_at=offer.collected_at,
+                    status=offer.status,
+                )
+            )
+        return stale
+
+    def _record_run_audit(self, report: ExternalOfferImportReport) -> None:
+        record_audit(
+            self.db,
+            module=self.MODULE,
+            action=AuditAction.ADMIN,
+            resource_type="external_offer_import",
+            resource_id=report.source_file,
+            message=(
+                f"External offer {report.mode}: created={report.created} "
+                f"updated={report.updated} unchanged={report.unchanged} "
+                f"rejected={report.rejected} duplicate_in_file={report.duplicate_in_file}"
+            ),
+            metadata=report.to_summary_dict(),
+        )
 
     def _upsert_shop(self, record: ExternalOfferImportRecord, *, owner_id: uuid.UUID) -> Shop:
         shop_key = record.shop_external_source_key or self._default_shop_key(record)
@@ -182,7 +279,7 @@ class ExternalOfferImportService:
 
     def _upsert_offer(
         self, record: ExternalOfferImportRecord, *, shop: Shop, now: datetime
-    ) -> tuple[Offer, bool]:
+    ) -> tuple[Offer, str]:
         existing = (
             self.db.query(Offer)
             .filter(Offer.external_source_key == record.external_source_key)
@@ -224,12 +321,72 @@ class ExternalOfferImportService:
         if existing is None:
             offer = Offer(**payload)
             self.offer_repo.create(offer)
-            return offer, True
+            return offer, ExternalImportRowOutcome.CREATED.value
+
+        if self._offer_payload_matches(existing, payload, record):
+            return existing, ExternalImportRowOutcome.UNCHANGED.value
 
         for key, value in payload.items():
             setattr(existing, key, value)
         self.offer_repo.save(existing)
-        return existing, False
+        return existing, ExternalImportRowOutcome.UPDATED.value
+
+    def _offer_payload_matches(
+        self,
+        existing: Offer,
+        payload: dict,
+        record: ExternalOfferImportRecord,
+    ) -> bool:
+        compare_fields = (
+            "title",
+            "description",
+            "discount_type",
+            "discount_value",
+            "starts_at",
+            "ends_at",
+            "status",
+            "source_name",
+            "source_url",
+            "collected_at",
+        )
+        for field in compare_fields:
+            if not self._values_equal(getattr(existing, field), payload[field]):
+                return False
+        shop = self.db.get(Shop, existing.shop_id)
+        if shop is None or shop.name != record.shop_name.strip():
+            return False
+        location = (
+            self.db.query(Location)
+            .filter(Location.shop_id == existing.shop_id, Location.is_primary.is_(True))
+            .one_or_none()
+        )
+        if location is None:
+            return False
+        address = record.address
+        location_fields = {
+            "address_line1": address.address_line1,
+            "address_line2": address.address_line2,
+            "city": address.city,
+            "state": address.state,
+            "postal_code": address.postal_code,
+            "country": address.country,
+            "latitude": address.latitude,
+            "longitude": address.longitude,
+        }
+        for field, expected in location_fields.items():
+            if not self._values_equal(getattr(location, field), expected):
+                return False
+        return True
+
+    @staticmethod
+    def _values_equal(left, right) -> bool:
+        if isinstance(left, Decimal) and isinstance(right, Decimal):
+            return left == right
+        if left is None or right is None:
+            return left is None and right is None
+        if isinstance(left, datetime) and isinstance(right, datetime):
+            return left.replace(tzinfo=UTC) == right.replace(tzinfo=UTC)
+        return left == right
 
     def _resolve_category(self, category_name: str) -> Category | None:
         normalized = category_name.strip().lower()
